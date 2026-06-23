@@ -1,0 +1,137 @@
+import mimetypes
+import os
+
+from django.http import FileResponse, Http404
+from rest_framework import generics, parsers, status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from apps.files.models import FileRecord
+from apps.files.serializers import (
+    FileRecordSerializer,
+    FileStatsSerializer,
+    FileUploadSerializer,
+)
+from core.permissions import IsOwner
+from core.responses import success_response
+from services.audit_service import AuditService
+from services.file_service import FileService
+
+
+class FileListCreateView(generics.ListCreateAPIView):
+    serializer_class = FileRecordSerializer
+    permission_classes = [IsAuthenticated]
+    parser_classes = [parsers.MultiPartParser, parsers.FormParser]
+
+    def get_queryset(self):
+        return FileRecord.objects.filter(owner=self.request.user)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+        return success_response(data=serializer.data)
+
+    def create(self, request, *args, **kwargs):
+        upload_serializer = FileUploadSerializer(data=request.data)
+        upload_serializer.is_valid(raise_exception=True)
+
+        service = FileService()
+        record = service.upload(request.user, upload_serializer.validated_data["file"])
+        return success_response(
+            data=FileRecordSerializer(record).data,
+            message="File uploaded successfully.",
+            status_code=status.HTTP_201_CREATED,
+        )
+
+
+class FileDetailView(generics.RetrieveDestroyAPIView):
+    serializer_class = FileRecordSerializer
+    permission_classes = [IsAuthenticated, IsOwner]
+    lookup_field = "id"
+
+    def get_queryset(self):
+        return FileRecord.objects.filter(owner=self.request.user)
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return success_response(data=serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        service = FileService()
+        service.delete(request.user, instance)
+        return success_response(message="File deleted successfully.", status_code=status.HTTP_200_OK)
+
+
+class FileDownloadView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, id):
+        service = FileService()
+        file_record = service.get_user_file(request.user, id)
+
+        if not file_record:
+            raise Http404("File not found.")
+
+        file_path = service.get_storage_path(file_record)
+
+        if not os.path.exists(file_path):
+            raise Http404("File not found on storage.")
+
+        AuditService.log_download(request.user, file_record)
+
+        content_type = file_record.mime_type or mimetypes.guess_type(file_record.original_filename)[0] or "application/octet-stream"
+        response = FileResponse(
+            open(file_path, "rb"),
+            content_type=content_type,
+            as_attachment=True,
+            filename=file_record.original_filename,
+        )
+        response["Content-Length"] = file_record.size
+        return response
+
+
+class FileStatsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        service = FileService()
+        stats = service.get_stats(request.user)
+        data = {
+            "total_files": stats["total_files"],
+            "storage_used": stats["storage_used"],
+            "latest_upload": (
+                FileRecordSerializer(stats["latest_upload"]).data
+                if stats["latest_upload"]
+                else None
+            ),
+        }
+        serializer = FileStatsSerializer(data)
+        return success_response(data=serializer.data)
+
+
+class FilePreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, id):
+        service = FileService()
+        file_record = service.get_user_file(request.user, id)
+
+        if not file_record or not file_record.mime_type.startswith("image/"):
+            raise Http404("Preview not available.")
+
+        file_path = service.get_storage_path(file_record)
+
+        if not os.path.exists(file_path):
+            raise Http404("File not found on storage.")
+
+        content_type = file_record.mime_type
+        response = FileResponse(
+            open(file_path, "rb"),
+            content_type=content_type,
+            as_attachment=False,
+        )
+        response["Content-Length"] = file_record.size
+        return response
