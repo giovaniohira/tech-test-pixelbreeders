@@ -1,10 +1,9 @@
-import mimetypes
 import os
 
 from django.http import FileResponse, Http404
 from rest_framework import generics, parsers, status
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from apps.files.models import FileRecord
@@ -14,7 +13,9 @@ from apps.files.serializers import (
     FileUploadSerializer,
 )
 from core.permissions import IsOwner
-from core.responses import success_response
+from core.responses import error_response, success_response
+from core.utils import sanitize_filename
+from core.exceptions import StorageQuotaExceeded
 from services.audit_service import AuditService
 from services.file_service import FileService
 
@@ -23,7 +24,13 @@ class FileListCreateView(generics.ListCreateAPIView):
     serializer_class = FileRecordSerializer
     permission_classes = [IsAuthenticated]
     parser_classes = [parsers.MultiPartParser, parsers.FormParser]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "upload"
 
+    def get_throttles(self):
+        if self.request.method == "POST":
+            return super().get_throttles()
+        return []
     def get_queryset(self):
         return FileRecord.objects.filter(owner=self.request.user)
 
@@ -37,7 +44,13 @@ class FileListCreateView(generics.ListCreateAPIView):
         upload_serializer.is_valid(raise_exception=True)
 
         service = FileService()
-        record = service.upload(request.user, upload_serializer.validated_data["file"])
+        try:
+            record = service.upload(request.user, upload_serializer.validated_data["file"])
+        except StorageQuotaExceeded:
+            return error_response(
+                "Storage quota exceeded.",
+                status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            )
         return success_response(
             data=FileRecordSerializer(record).data,
             message="File uploaded successfully.",
@@ -82,12 +95,12 @@ class FileDownloadView(APIView):
 
         AuditService.log_download(request.user, file_record)
 
-        content_type = file_record.mime_type or mimetypes.guess_type(file_record.original_filename)[0] or "application/octet-stream"
+        content_type = file_record.mime_type or "application/octet-stream"
         response = FileResponse(
             open(file_path, "rb"),
             content_type=content_type,
             as_attachment=True,
-            filename=file_record.original_filename,
+            filename=sanitize_filename(file_record.original_filename),
         )
         response["Content-Length"] = file_record.size
         return response
@@ -99,16 +112,13 @@ class FileStatsView(APIView):
     def get(self, request):
         service = FileService()
         stats = service.get_stats(request.user)
-        data = {
-            "total_files": stats["total_files"],
-            "storage_used": stats["storage_used"],
-            "latest_upload": (
-                FileRecordSerializer(stats["latest_upload"]).data
-                if stats["latest_upload"]
-                else None
-            ),
-        }
-        serializer = FileStatsSerializer(data)
+        serializer = FileStatsSerializer(
+            {
+                "total_files": stats["total_files"],
+                "storage_used": stats["storage_used"],
+                "latest_upload": stats["latest_upload"],
+            }
+        )
         return success_response(data=serializer.data)
 
 

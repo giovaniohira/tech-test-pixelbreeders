@@ -1,31 +1,44 @@
+from django.conf import settings
 from rest_framework.views import exception_handler
 from rest_framework.response import Response
 from rest_framework import status
+
+
+class StorageQuotaExceeded(Exception):
+    """Raised when a user exceeds their storage quota."""
+
+
+def _build_error_payload(status_code, message, details=None):
+    payload = {
+        "code": status_code,
+        "message": message,
+    }
+    if settings.DEBUG and details is not None:
+        payload["details"] = details
+    return payload
 
 
 def custom_exception_handler(exc, context):
     response = exception_handler(exc, context)
 
     if response is not None:
-        error_payload = {
+        response.data = {
             "success": False,
-            "error": {
-                "code": response.status_code,
-                "message": _extract_message(response.data),
-                "details": response.data if isinstance(response.data, dict) else None,
-            },
+            "error": _build_error_payload(
+                response.status_code,
+                _extract_message(response.data),
+                response.data if isinstance(response.data, dict) else None,
+            ),
         }
-        response.data = error_payload
         return response
 
     return Response(
         {
             "success": False,
-            "error": {
-                "code": status.HTTP_500_INTERNAL_SERVER_ERROR,
-                "message": "An unexpected error occurred.",
-                "details": None,
-            },
+            "error": _build_error_payload(
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+                "An unexpected error occurred.",
+            ),
         },
         status=status.HTTP_500_INTERNAL_SERVER_ERROR,
     )
