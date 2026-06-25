@@ -1,5 +1,6 @@
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.validators import UnicodeUsernameValidator
 from rest_framework import serializers
 
 
@@ -10,21 +11,27 @@ class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ("id", "username", "email", "password", "password_confirm")
-
-    def validate_email(self, value):
-        if User.objects.filter(email__iexact=value).exists():
-            raise serializers.ValidationError("A user with this email already exists.")
-        return value.lower()
-
-    def validate_username(self, value):
-        if User.objects.filter(username__iexact=value).exists():
-            raise serializers.ValidationError("This username is already taken.")
-        return value
+        extra_kwargs = {
+            "username": {"validators": [UnicodeUsernameValidator()]},
+            "email": {"validators": []},
+        }
 
     def validate(self, attrs):
         if attrs["password"] != attrs["password_confirm"]:
-            raise serializers.ValidationError({"password_confirm": "Passwords do not match."})
+            raise serializers.ValidationError(
+                {"non_field_errors": ["Unable to register with provided credentials."]}
+            )
+
         validate_password(attrs["password"])
+
+        email_taken = User.objects.filter(email__iexact=attrs["email"]).exists()
+        username_taken = User.objects.filter(username__iexact=attrs["username"]).exists()
+        if email_taken or username_taken:
+            raise serializers.ValidationError(
+                {"non_field_errors": ["Unable to register with provided credentials."]}
+            )
+
+        attrs["email"] = attrs["email"].lower()
         return attrs
 
     def create(self, validated_data):
