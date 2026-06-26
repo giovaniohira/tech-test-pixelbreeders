@@ -4,32 +4,41 @@ from django.conf import settings
 from django.db import transaction
 from django.db.models import Sum
 
-from apps.files.models import FileRecord
-from apps.files.validators import detect_file_mime, validate_upload_file
+from apps.files.models import FileRecord, Folder
+from apps.files.validators import validate_upload_file
 from core.exceptions import StorageQuotaExceeded
 from services.audit_service import AuditService
+from services.group_service import GroupService
 from storage.local import LocalFileStorage
 
 
 class FileService:
     def __init__(self, storage: LocalFileStorage | None = None):
         self.storage = storage or LocalFileStorage()
+        self.group_service = GroupService()
 
     @transaction.atomic
-    def upload(self, user, uploaded_file) -> FileRecord:
-        validate_upload_file(uploaded_file)
+    def upload(self, user, uploaded_file, folder_id=None) -> FileRecord:
+        mime_type = validate_upload_file(uploaded_file)
+        uploaded_file.seek(0)
 
         stats = self.get_stats(user)
         if stats["storage_used"] + uploaded_file.size > settings.MAX_STORAGE_QUOTA_BYTES:
             raise StorageQuotaExceeded()
 
+        folder = None
+        if folder_id:
+            folder = Folder.objects.filter(id=folder_id, owner=user).first()
+            if not folder:
+                raise ValueError("Folder not found.")
+
         storage_name = self.storage.generate_storage_name(uploaded_file.name)
         try:
             self.storage.save(user.id, storage_name, uploaded_file)
-            mime_type = detect_file_mime(uploaded_file)
 
             record = FileRecord.objects.create(
                 owner=user,
+                folder=folder,
                 original_filename=Path(uploaded_file.name).name,
                 storage_filename=storage_name,
                 mime_type=mime_type,
@@ -43,10 +52,20 @@ class FileService:
         return record
 
     def get_user_file(self, user, file_id) -> FileRecord | None:
-        return FileRecord.objects.filter(id=file_id, owner=user).first()
+        record = FileRecord.objects.filter(id=file_id).first()
+        if not record:
+            return None
+        if self.group_service.user_can_access_file(user, record):
+            return record
+        return None
 
-    def list_user_files(self, user):
-        return FileRecord.objects.filter(owner=user)
+    def list_user_files(self, user, folder_id=None):
+        qs = FileRecord.objects.filter(owner=user)
+        if folder_id:
+            qs = qs.filter(folder_id=folder_id)
+        else:
+            qs = qs.filter(folder__isnull=True)
+        return qs
 
     def get_storage_path(self, file_record: FileRecord):
         return self.storage.get_path(file_record.owner_id, file_record.storage_filename)

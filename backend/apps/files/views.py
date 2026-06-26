@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 
 from apps.files.models import FileRecord
 from apps.files.serializers import (
+    FileMoveSerializer,
     FileRecordSerializer,
     FileStatsSerializer,
     FileUploadSerializer,
@@ -18,6 +19,7 @@ from core.utils import sanitize_filename
 from core.exceptions import StorageQuotaExceeded
 from services.audit_service import AuditService
 from services.file_service import FileService
+from services.folder_service import FolderService
 
 
 class FileListCreateView(generics.ListCreateAPIView):
@@ -32,11 +34,13 @@ class FileListCreateView(generics.ListCreateAPIView):
             return super().get_throttles()
         return []
     def get_queryset(self):
-        return FileRecord.objects.filter(owner=self.request.user)
+        folder_id = self.request.query_params.get("folder_id")
+        service = FileService()
+        return service.list_user_files(self.request.user, folder_id=folder_id or None)
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
-        serializer = self.get_serializer(queryset, many=True)
+        serializer = self.get_serializer(queryset, many=True, context={"request": request})
         return success_response(data=serializer.data)
 
     def create(self, request, *args, **kwargs):
@@ -45,14 +49,20 @@ class FileListCreateView(generics.ListCreateAPIView):
 
         service = FileService()
         try:
-            record = service.upload(request.user, upload_serializer.validated_data["file"])
+            record = service.upload(
+                request.user,
+                upload_serializer.validated_data["file"],
+                folder_id=upload_serializer.validated_data.get("folder_id"),
+            )
         except StorageQuotaExceeded:
             return error_response(
                 "Storage quota exceeded.",
                 status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             )
+        except ValueError as exc:
+            return error_response(str(exc), status.HTTP_400_BAD_REQUEST)
         return success_response(
-            data=FileRecordSerializer(record).data,
+            data=FileRecordSerializer(record, context={"request": request}).data,
             message="File uploaded successfully.",
             status_code=status.HTTP_201_CREATED,
         )
@@ -68,7 +78,7 @@ class FileDetailView(generics.RetrieveDestroyAPIView):
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
-        serializer = self.get_serializer(instance)
+        serializer = self.get_serializer(instance, context={"request": request})
         return success_response(data=serializer.data)
 
     def destroy(self, request, *args, **kwargs):
@@ -76,6 +86,34 @@ class FileDetailView(generics.RetrieveDestroyAPIView):
         service = FileService()
         service.delete(request.user, instance)
         return success_response(message="File deleted successfully.", status_code=status.HTTP_200_OK)
+
+
+class FileMoveView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, id):
+        move_serializer = FileMoveSerializer(data=request.data)
+        move_serializer.is_valid(raise_exception=True)
+
+        service = FileService()
+        file_record = service.get_user_file(request.user, id)
+        if not file_record or file_record.owner != request.user:
+            raise Http404("File not found.")
+
+        folder_service = FolderService()
+        try:
+            updated = folder_service.move_file_to_folder(
+                request.user,
+                file_record,
+                folder_id=move_serializer.validated_data.get("folder_id"),
+            )
+        except (PermissionError, ValueError) as exc:
+            return error_response(str(exc), status.HTTP_400_BAD_REQUEST)
+
+        return success_response(
+            data=FileRecordSerializer(updated, context={"request": request}).data,
+            message="File moved successfully.",
+        )
 
 
 class FileDownloadView(APIView):
