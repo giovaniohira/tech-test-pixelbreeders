@@ -1,0 +1,35 @@
+# Dependencies and build output
+node_modules/
+dist/
+
+# Environment and secrets
+.env
+.env.*
+
+# Version control
+.git/
+.gitignore
+
+# Tests and reports
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+
+# Dev tooling and docs
+.agents/
+.claude/
+.github/
+skills/
+*.md
+
+# IDE and OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Docker
+Dockerfile
+docker-compose*.yml
