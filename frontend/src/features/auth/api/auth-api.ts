@@ -29,8 +29,8 @@ export async function loginUser(payload: LoginPayload): Promise<AuthResponse> {
   return data.data;
 }
 
-export async function logoutUser(refreshToken: string): Promise<void> {
-  await apiClient.post("/auth/logout/", { refresh: refreshToken });
+export async function logoutUser(): Promise<void> {
+  await apiClient.post("/auth/logout/");
 }
 
 export async function fetchCurrentUser(): Promise<User> {

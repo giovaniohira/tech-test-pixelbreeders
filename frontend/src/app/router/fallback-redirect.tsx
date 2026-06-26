@@ -1,7 +1,7 @@
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { useAuthStore } from "@/features/auth/store/auth-store";
 
-export function ProtectedRoute() {
+export function FallbackRedirect() {
   const isBootstrapped = useAuthStore((s) => s.isBootstrapped);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const accessToken = useAuthStore((s) => s.accessToken);
@@ -10,9 +10,7 @@ export function ProtectedRoute() {
     return null;
   }
 
-  if (!isAuthenticated || !accessToken) {
-    return <Navigate to="/login" replace />;
-  }
-
-  return <Outlet />;
+  return (
+    <Navigate to={isAuthenticated && accessToken ? "/dashboard" : "/"} replace />
+  );
 }

@@ -1,51 +1,40 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 import type { User } from "@/shared/types";
 
 interface AuthState {
   user: User | null;
   accessToken: string | null;
-  refreshToken: string | null;
   isAuthenticated: boolean;
-  setAuth: (user: User, access: string, refresh: string) => void;
-  setTokens: (access: string, refresh: string) => void;
+  isBootstrapped: boolean;
+  setAuth: (user: User, access: string) => void;
+  setTokens: (access: string) => void;
   setUser: (user: User) => void;
+  setBootstrapped: (value: boolean) => void;
   logout: () => void;
 }
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set) => ({
+export const useAuthStore = create<AuthState>((set) => ({
+  user: null,
+  accessToken: null,
+  isAuthenticated: false,
+  isBootstrapped: false,
+  setAuth: (user, access) =>
+    set({
+      user,
+      accessToken: access,
+      isAuthenticated: true,
+    }),
+  setTokens: (access) =>
+    set({
+      accessToken: access,
+      isAuthenticated: true,
+    }),
+  setUser: (user) => set({ user }),
+  setBootstrapped: (value) => set({ isBootstrapped: value }),
+  logout: () =>
+    set({
       user: null,
       accessToken: null,
-      refreshToken: null,
       isAuthenticated: false,
-      setAuth: (user, access, refresh) =>
-        set({
-          user,
-          accessToken: access,
-          refreshToken: refresh,
-          isAuthenticated: true,
-        }),
-      setTokens: (access, refresh) =>
-        set({ accessToken: access, refreshToken: refresh }),
-      setUser: (user) => set({ user }),
-      logout: () =>
-        set({
-          user: null,
-          accessToken: null,
-          refreshToken: null,
-          isAuthenticated: false,
-        }),
     }),
-    {
-      name: "filevault-auth",
-      partialize: (state) => ({
-        user: state.user,
-        accessToken: state.accessToken,
-        refreshToken: state.refreshToken,
-        isAuthenticated: state.isAuthenticated,
-      }),
-    },
-  ),
-);
+}));
