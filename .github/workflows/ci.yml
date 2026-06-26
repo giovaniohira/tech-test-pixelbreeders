@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: filevault
+          POSTGRES_USER: filevault
+          POSTGRES_PASSWORD: filevault_secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U filevault -d filevault"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install backend dependencies
+        run: pip install -r backend/requirements.txt
+      - name: Audit Python dependencies
+        run: pip install pip-audit && pip-audit -r backend/requirements.txt --desc on
+      - name: Run backend tests
+        working-directory: backend
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_DB: filevault
+          POSTGRES_USER: filevault
+          POSTGRES_PASSWORD: filevault_secret
+          DJANGO_SECRET_KEY: ci-test-secret
+        run: python manage.py test tests
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Audit npm dependencies
+        working-directory: frontend
+        run: npm audit --audit-level=high
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+      - name: React Doctor
+        working-directory: frontend
+        run: npm run doctor
