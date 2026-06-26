@@ -3,6 +3,7 @@ import { Upload, FileUp } from "lucide-react";
 import { toast } from "sonner";
 
 import { useUploadFile } from "@/features/files/hooks/use-files";
+import { useUploadConfig } from "@/features/files/hooks/use-upload-config";
 import { Button } from "@/shared/components/ui/button";
 import { Progress } from "@/shared/components/ui/progress";
 import {
@@ -17,10 +18,11 @@ export function UploadZone({ folderId }: { folderId?: string | null }) {
   const [isDragging, setIsDragging] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const upload = useUploadFile();
+  const { data: uploadConfig } = useUploadConfig();
 
   const validateAndUpload = useCallback(
     (file: File) => {
-      const validationError = validateFileForUpload(file);
+      const validationError = validateFileForUpload(file, uploadConfig);
       if (validationError) {
         toast.error(validationError);
         return;
@@ -32,7 +34,7 @@ export function UploadZone({ folderId }: { folderId?: string | null }) {
         { onSettled: () => setProgress(null) },
       );
     },
-    [upload, folderId],
+    [upload, folderId, uploadConfig],
   );
 
   const handleFiles = useCallback(
@@ -93,7 +95,7 @@ export function UploadZone({ folderId }: { folderId?: string | null }) {
             {isDragging ? "Solte o arquivo aqui" : "Arraste e solte um arquivo aqui"}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            PNG, JPG, PDF, TXT — até {MAX_FILE_SIZE_MB} MB
+            PNG, JPG, PDF, TXT — até {uploadConfig?.max_size_mb ?? MAX_FILE_SIZE_MB} MB
           </p>
         </div>
         <Button
