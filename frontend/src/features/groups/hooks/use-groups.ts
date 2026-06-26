@@ -13,7 +13,7 @@ import {
   removeFileFromGroup,
   removeGroupMember,
 } from "@/features/groups/api/groups-api";
-import { useAuthStore } from "@/features/auth/store/auth-store";
+import { useAuthReady } from "@/features/auth/hooks/use-auth-ready";
 import { getErrorMessage } from "@/shared/api/client";
 import {
   FILES_QUERY_KEY,
@@ -21,10 +21,6 @@ import {
   GROUP_INVITATIONS_QUERY_KEY,
   groupDetailQueryKey,
 } from "@/shared/constants/query-keys";
-
-function useAuthReady() {
-  return useAuthStore((s) => s.isAuthenticated && !!s.accessToken);
-}
 
 export function useGroups() {
   const authReady = useAuthReady();

@@ -7,16 +7,12 @@ import {
   fetchFileStats,
   uploadFile,
 } from "@/features/files/api/files-api";
-import { useAuthStore } from "@/features/auth/store/auth-store";
+import { useAuthReady } from "@/features/auth/hooks/use-auth-ready";
 import { getErrorMessage } from "@/shared/api/client";
 import {
   FILE_STATS_QUERY_KEY,
   filesQueryKey,
 } from "@/shared/constants/query-keys";
-
-function useAuthReady() {
-  return useAuthStore((s) => s.isAuthenticated && !!s.accessToken);
-}
 
 export function useFiles(folderId?: string | null) {
   const authReady = useAuthReady();

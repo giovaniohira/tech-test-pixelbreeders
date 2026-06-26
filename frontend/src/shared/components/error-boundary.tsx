@@ -30,13 +30,13 @@ export class ErrorBoundary extends Component<Props, State> {
         <div className="flex min-h-screen items-center justify-center p-4">
           <Card className="max-w-md w-full">
             <CardHeader>
-              <CardTitle>Something went wrong</CardTitle>
+              <CardTitle>Algo deu errado</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                An unexpected error occurred. Please refresh the page or try again later.
+                Ocorreu um erro inesperado. Atualize a página ou tente novamente mais tarde.
               </p>
-              <Button onClick={() => window.location.reload()}>Refresh page</Button>
+              <Button onClick={() => window.location.reload()}>Atualizar página</Button>
             </CardContent>
           </Card>
         </div>

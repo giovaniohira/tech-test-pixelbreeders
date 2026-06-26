@@ -29,7 +29,7 @@ function ImagePreviewBody({ file }: { file: FileRecord }) {
   }, [imageUrl]);
 
   if (isError) {
-    return <p className="text-sm text-muted-foreground">Unable to load image preview.</p>;
+    return <p className="text-sm text-muted-foreground">Não foi possível carregar a pré-visualização.</p>;
   }
 
   if (isLoading || !imageUrl) {
@@ -51,7 +51,7 @@ export function ImagePreviewModal({ file, open, onOpenChange }: ImagePreviewModa
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle className="truncate pr-8">{file.original_filename}</DialogTitle>
-          <DialogDescription>Image preview</DialogDescription>
+          <DialogDescription>Pré-visualização da imagem</DialogDescription>
         </DialogHeader>
         <div className="flex items-center justify-center rounded-md bg-muted/50 p-4 min-h-[200px] max-h-[70vh] overflow-auto">
           {open ? (
@@ -62,7 +62,7 @@ export function ImagePreviewModal({ file, open, onOpenChange }: ImagePreviewModa
         </div>
         <div className="flex justify-end">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Close
+            Fechar
           </Button>
         </div>
       </DialogContent>

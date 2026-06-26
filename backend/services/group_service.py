@@ -1,6 +1,5 @@
 from django.contrib.auth.models import User
 from django.db import transaction
-from django.db.models import Q
 from django.utils import timezone
 
 from apps.files.models import FileRecord
@@ -168,9 +167,3 @@ class GroupService:
             file=file_record,
             group__memberships__user=user,
         ).exists()
-
-    def get_accessible_files_queryset(self, user: User):
-        shared_ids = GroupFile.objects.filter(
-            group__memberships__user=user
-        ).values_list("file_id", flat=True)
-        return FileRecord.objects.filter(Q(owner=user) | Q(id__in=shared_ids)).distinct()

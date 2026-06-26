@@ -11,10 +11,10 @@ function isAllowedFileType(file: File): boolean {
 
 export function validateFileForUpload(file: File): string | null {
   if (!isAllowedFileType(file)) {
-    return "File type not allowed. Allowed types: PNG, JPG, PDF, TXT.";
+    return "Tipo de arquivo não permitido. Tipos aceitos: PNG, JPG, PDF, TXT.";
   }
   if (file.size > MAX_FILE_SIZE_BYTES) {
-    return `File exceeds the ${MAX_FILE_SIZE_MB} MB size limit.`;
+    return `O arquivo excede o limite de ${MAX_FILE_SIZE_MB} MB.`;
   }
   return null;
 }

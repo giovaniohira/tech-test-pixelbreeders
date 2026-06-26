@@ -28,7 +28,7 @@ interface FileContextMenuProps {
 
 function getFolderLabel(folders: Folder[], folder: Folder): string {
   const path = getFolderPath(folders, folder.id);
-  return path.map((f) => f.name).join(" / ");
+  return path.map((folder) => folder.name).join(" / ");
 }
 
 export function FileContextMenu({
@@ -46,14 +46,16 @@ export function FileContextMenu({
 
   const sortedFolders = useMemo(
     () =>
-      allFolders.toSorted((a, b) =>
-        getFolderLabel(allFolders, a).localeCompare(getFolderLabel(allFolders, b)),
+      allFolders.toSorted((leftFolder, rightFolder) =>
+        getFolderLabel(allFolders, leftFolder).localeCompare(
+          getFolderLabel(allFolders, rightFolder),
+        ),
       ),
     [allFolders],
   );
 
-  const sharedGroups = groups.filter((g) => file.group_ids.includes(g.id));
-  const availableGroups = groups.filter((g) => !file.group_ids.includes(g.id));
+  const sharedGroups = groups.filter((group) => file.group_ids.includes(group.id));
+  const availableGroups = groups.filter((group) => !file.group_ids.includes(group.id));
 
   return (
     <ContextMenu>

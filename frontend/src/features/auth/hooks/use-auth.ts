@@ -29,7 +29,7 @@ export function useLogin() {
       queryClient.invalidateQueries({ queryKey: CURRENT_USER_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: FILES_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: FILE_STATS_QUERY_KEY });
-      toast.success("Welcome back!");
+      toast.success("Bem-vindo de volta!");
       navigate("/dashboard");
     },
     onError: (error) => {
@@ -50,7 +50,7 @@ export function useRegister() {
       queryClient.invalidateQueries({ queryKey: CURRENT_USER_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: FILES_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: FILE_STATS_QUERY_KEY });
-      toast.success("Account created successfully!");
+      toast.success("Conta criada com sucesso!");
       navigate("/dashboard");
     },
     onError: (error) => {

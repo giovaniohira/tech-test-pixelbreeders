@@ -61,7 +61,6 @@ const steps = [
 export function LandingPage() {
   return (
     <MarketingLayout>
-      {/* Hero */}
       <section className="relative overflow-hidden pt-32 pb-20 md:pt-40 md:pb-28">
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 h-[500px] w-[800px] rounded-full bg-primary/5 blur-3xl" />
@@ -107,7 +106,6 @@ export function LandingPage() {
             </p>
           </div>
 
-          {/* Dashboard preview mockup */}
           <div className="mt-16 mx-auto max-w-4xl">
             <div className="rounded-xl border border-border bg-card shadow-2xl shadow-primary/5 overflow-hidden">
               <div className="flex items-center gap-2 border-b border-border bg-muted/30 px-4 py-3">
@@ -139,7 +137,6 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* Features bento grid */}
       <section id="features" className="py-20 md:py-28 border-t border-border">
         <div className="container mx-auto px-4">
           <div className="text-center max-w-2xl mx-auto mb-14">
@@ -172,7 +169,6 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* How it works */}
       <section id="how-it-works" className="py-20 md:py-28 bg-muted/20">
         <div className="container mx-auto px-4">
           <div className="text-center max-w-2xl mx-auto mb-14">
@@ -196,7 +192,6 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* Security */}
       <section id="security" className="py-20 md:py-28">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto rounded-2xl border border-border bg-gradient-to-br from-card to-muted/30 p-8 md:p-12">
@@ -224,7 +219,6 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* Final CTA */}
       <section className="py-20 md:py-28 border-t border-border">
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl md:text-4xl font-bold tracking-tight">

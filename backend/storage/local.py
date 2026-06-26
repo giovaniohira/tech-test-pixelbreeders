@@ -6,7 +6,6 @@ from django.conf import settings
 
 
 class LocalFileStorage:
-    """Filesystem storage adapter for user uploads."""
 
     def __init__(self, base_path: str | None = None):
         self.base_path = Path(base_path or settings.FILE_STORAGE_PATH)
@@ -37,6 +36,3 @@ class LocalFileStorage:
             os.remove(path)
             return True
         return False
-
-    def exists(self, user_id: int, storage_name: str) -> bool:
-        return self.get_path(user_id, storage_name).exists()

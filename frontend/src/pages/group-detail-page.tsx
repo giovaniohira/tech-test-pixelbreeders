@@ -1,18 +1,16 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Download, LogOut, UserMinus, UserPlus, Users } from "lucide-react";
-import { toast } from "sonner";
 
 import { DashboardLayout } from "@/app/layouts/dashboard-layout";
 import { useAuthStore } from "@/features/auth/store/auth-store";
-import { downloadFileRecord } from "@/features/files/api/files-api";
+import { downloadFileWithToast } from "@/features/files/lib/file-actions";
 import {
   useGroupDetail,
   useInviteToGroup,
   useLeaveGroup,
   useRemoveGroupMember,
 } from "@/features/groups/hooks/use-groups";
-import { getErrorMessage } from "@/shared/api/client";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
@@ -26,15 +24,7 @@ import {
 import { Input } from "@/shared/components/ui/input";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { formatBytes, formatDate } from "@/shared/lib/utils";
-import type { FileRecord, GroupMember } from "@/shared/types";
-
-async function handleDownload(file: FileRecord) {
-  try {
-    await downloadFileRecord(file);
-  } catch (error) {
-    toast.error(getErrorMessage(error));
-  }
-}
+import type { GroupMember } from "@/shared/types";
 
 export function GroupDetailPage() {
   const navigate = useNavigate();
@@ -230,7 +220,7 @@ export function GroupDetailPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleDownload(file)}
+                        onClick={() => downloadFileWithToast(file)}
                         aria-label="Baixar"
                       >
                         <Download className="h-4 w-4" />

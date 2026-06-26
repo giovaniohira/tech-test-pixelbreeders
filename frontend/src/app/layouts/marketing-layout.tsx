@@ -2,7 +2,6 @@ import { Link } from "react-router-dom";
 import { Logo } from "@/shared/components/logo";
 import { ThemeToggle } from "@/shared/components/theme-toggle";
 import { Button } from "@/shared/components/ui/button";
-import { COPYRIGHT_YEAR } from "@/shared/constants";
 
 interface MarketingLayoutProps {
   children: React.ReactNode;
@@ -56,7 +55,7 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
             </div>
           </div>
           <div className="mt-8 pt-8 border-t border-border text-center text-xs text-muted-foreground">
-            © {COPYRIGHT_YEAR} FileVault. Todos os direitos reservados.
+            © {new Date().getFullYear()} FileVault. Todos os direitos reservados.
           </div>
         </div>
       </footer>

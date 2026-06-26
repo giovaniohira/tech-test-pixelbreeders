@@ -1,26 +1,24 @@
-import { useMemo, useReducer } from "react";
+import { useMemo, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
   Download,
   Eye,
   FileText,
-  Image as ImageIcon,
   Search,
   Trash2,
 } from "lucide-react";
-import { toast } from "sonner";
+
 import { useDeleteFile } from "@/features/files/hooks/use-files";
-import { downloadFileRecord } from "@/features/files/api/files-api";
-import { ImagePreviewModal } from "@/features/files/components/image-preview-modal";
 import { DeleteFileDialog } from "@/features/files/components/delete-file-dialog";
 import { FileContextMenu } from "@/features/files/components/file-context-menu";
+import { ImagePreviewModal } from "@/features/files/components/image-preview-modal";
+import { downloadFileWithToast, getFileIcon } from "@/features/files/lib/file-actions";
 import { useGroups } from "@/features/groups/hooks/use-groups";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Skeleton } from "@/shared/components/ui/skeleton";
-import { getErrorMessage } from "@/shared/api/client";
 import type { FileRecord, SortDirection, SortField } from "@/shared/types";
 import { formatBytes, formatDate } from "@/shared/lib/utils";
 
@@ -30,70 +28,23 @@ interface FileTableProps {
   hideSearch?: boolean;
 }
 
-type FileTableState = {
-  search: string;
-  sortField: SortField;
-  sortDirection: SortDirection;
-  previewFile: FileRecord | null;
-  deleteFile: FileRecord | null;
-};
-
-type FileTableAction =
-  | { type: "SET_SEARCH"; payload: string }
-  | { type: "TOGGLE_SORT"; payload: SortField }
-  | { type: "SET_PREVIEW"; payload: FileRecord | null }
-  | { type: "SET_DELETE"; payload: FileRecord | null };
-
-const initialState: FileTableState = {
-  search: "",
-  sortField: "uploaded_at",
-  sortDirection: "desc",
-  previewFile: null,
-  deleteFile: null,
-};
-
-function fileTableReducer(state: FileTableState, action: FileTableAction): FileTableState {
-  switch (action.type) {
-    case "SET_SEARCH":
-      return { ...state, search: action.payload };
-    case "TOGGLE_SORT":
-      if (state.sortField === action.payload) {
-        return {
-          ...state,
-          sortDirection: state.sortDirection === "asc" ? "desc" : "asc",
-        };
-      }
-      return { ...state, sortField: action.payload, sortDirection: "asc" };
-    case "SET_PREVIEW":
-      return { ...state, previewFile: action.payload };
-    case "SET_DELETE":
-      return { ...state, deleteFile: action.payload };
-    default:
-      return state;
-  }
-}
-
-function getFileIcon(mimeType: string) {
-  if (mimeType.startsWith("image/")) return ImageIcon;
-  return FileText;
-}
-
 function sortFiles(
   files: FileRecord[],
   field: SortField,
   direction: SortDirection,
 ): FileRecord[] {
-  return files.toSorted((a, b) => {
+  return files.toSorted((left, right) => {
     let comparison = 0;
     switch (field) {
       case "name":
-        comparison = a.original_filename.localeCompare(b.original_filename);
+        comparison = left.original_filename.localeCompare(right.original_filename);
         break;
       case "size":
-        comparison = a.size - b.size;
+        comparison = left.size - right.size;
         break;
       case "uploaded_at":
-        comparison = new Date(a.uploaded_at).getTime() - new Date(b.uploaded_at).getTime();
+        comparison =
+          new Date(left.uploaded_at).getTime() - new Date(right.uploaded_at).getTime();
         break;
     }
     return direction === "asc" ? comparison : -comparison;
@@ -132,37 +83,43 @@ function SortButton({
   );
 }
 
-async function handleFileDownload(file: FileRecord) {
-  try {
-    await downloadFileRecord(file);
-  } catch (error) {
-    toast.error(getErrorMessage(error));
-  }
-}
-
 export function FileTable({ files, isLoading, hideSearch = false }: FileTableProps) {
-  const [state, dispatch] = useReducer(fileTableReducer, initialState);
+  const [search, setSearch] = useState("");
+  const [sortField, setSortField] = useState<SortField>("uploaded_at");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [previewFile, setPreviewFile] = useState<FileRecord | null>(null);
+  const [deleteFile, setDeleteFile] = useState<FileRecord | null>(null);
+
   const deleteMutation = useDeleteFile();
   const { data: groups = [] } = useGroups();
 
   const groupMap = useMemo(
-    () => new Map(groups.map((g) => [g.id, g.name])),
+    () => new Map(groups.map((group) => [group.id, group.name])),
     [groups],
   );
 
   const filteredFiles = useMemo(() => {
-    const query = hideSearch ? "" : state.search.toLowerCase().trim();
+    const query = hideSearch ? "" : search.toLowerCase().trim();
     const filtered = query
-      ? files.filter((f) => f.original_filename.toLowerCase().includes(query))
+      ? files.filter((file) => file.original_filename.toLowerCase().includes(query))
       : files;
-    return sortFiles(filtered, state.sortField, state.sortDirection);
-  }, [files, state.search, state.sortField, state.sortDirection, hideSearch]);
+    return sortFiles(filtered, sortField, sortDirection);
+  }, [files, search, sortField, sortDirection, hideSearch]);
+
+  function toggleSort(field: SortField) {
+    if (sortField === field) {
+      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortField(field);
+    setSortDirection("asc");
+  }
 
   if (isLoading) {
     return (
       <div className="space-y-3">
-        {[1, 2, 3, 4].map((i) => (
-          <Skeleton key={i} className="h-14 w-full" />
+        {[1, 2, 3, 4].map((placeholder) => (
+          <Skeleton key={placeholder} className="h-14 w-full" />
         ))}
       </div>
     );
@@ -175,8 +132,8 @@ export function FileTable({ files, isLoading, hideSearch = false }: FileTablePro
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Buscar arquivos..."
-            value={state.search}
-            onChange={(e) => dispatch({ type: "SET_SEARCH", payload: e.target.value })}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
             className="pl-9"
           />
         </div>
@@ -186,10 +143,10 @@ export function FileTable({ files, isLoading, hideSearch = false }: FileTablePro
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-16 text-center">
           <FileText className="h-10 w-10 text-muted-foreground mb-3" />
           <p className="font-medium">
-            {!hideSearch && state.search ? "Nenhum arquivo corresponde à busca" : "Nenhum arquivo encontrado"}
+            {!hideSearch && search ? "Nenhum arquivo corresponde à busca" : "Nenhum arquivo encontrado"}
           </p>
           <p className="text-sm text-muted-foreground mt-1">
-            {!hideSearch && state.search
+            {!hideSearch && search
               ? "Tente outro termo de busca"
               : "Envie seu primeiro arquivo para começar"}
           </p>
@@ -200,23 +157,23 @@ export function FileTable({ files, isLoading, hideSearch = false }: FileTablePro
             <SortButton
               field="name"
               label="Nome"
-              sortField={state.sortField}
-              sortDirection={state.sortDirection}
-              onToggle={(field) => dispatch({ type: "TOGGLE_SORT", payload: field })}
+              sortField={sortField}
+              sortDirection={sortDirection}
+              onToggle={toggleSort}
             />
             <SortButton
               field="size"
               label="Tamanho"
-              sortField={state.sortField}
-              sortDirection={state.sortDirection}
-              onToggle={(field) => dispatch({ type: "TOGGLE_SORT", payload: field })}
+              sortField={sortField}
+              sortDirection={sortDirection}
+              onToggle={toggleSort}
             />
             <SortButton
               field="uploaded_at"
               label="Enviado"
-              sortField={state.sortField}
-              sortDirection={state.sortDirection}
-              onToggle={(field) => dispatch({ type: "TOGGLE_SORT", payload: field })}
+              sortField={sortField}
+              sortDirection={sortDirection}
+              onToggle={toggleSort}
             />
             <span>Ações</span>
           </div>
@@ -228,12 +185,10 @@ export function FileTable({ files, isLoading, hideSearch = false }: FileTablePro
                   key={file.id}
                   file={file}
                   onPreview={
-                    file.is_image
-                      ? () => dispatch({ type: "SET_PREVIEW", payload: file })
-                      : undefined
+                    file.is_image ? () => setPreviewFile(file) : undefined
                   }
-                  onDownload={() => handleFileDownload(file)}
-                  onDelete={() => dispatch({ type: "SET_DELETE", payload: file })}
+                  onDownload={() => downloadFileWithToast(file)}
+                  onDelete={() => setDeleteFile(file)}
                 >
                   <li className="grid grid-cols-1 sm:grid-cols-[1fr_100px_140px_120px] gap-2 sm:gap-4 px-4 py-3 items-center hover:bg-muted/30 transition-colors cursor-default">
                     <div className="flex items-center gap-3 min-w-0">
@@ -246,9 +201,9 @@ export function FileTable({ files, isLoading, hideSearch = false }: FileTablePro
                           <Badge variant="secondary" className="sm:hidden text-[10px]">
                             {file.mime_type.split("/")[1]?.toUpperCase()}
                           </Badge>
-                          {file.group_ids.map((gid) => (
-                            <Badge key={gid} variant="outline" className="text-[10px]">
-                              {groupMap.get(gid) || "Grupo"}
+                          {file.group_ids.map((groupId) => (
+                            <Badge key={groupId} variant="outline" className="text-[10px]">
+                              {groupMap.get(groupId) || "Grupo"}
                             </Badge>
                           ))}
                         </div>
@@ -265,8 +220,8 @@ export function FileTable({ files, isLoading, hideSearch = false }: FileTablePro
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => dispatch({ type: "SET_PREVIEW", payload: file })}
-                          aria-label="Preview image"
+                          onClick={() => setPreviewFile(file)}
+                          aria-label="Visualizar"
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
@@ -274,16 +229,16 @@ export function FileTable({ files, isLoading, hideSearch = false }: FileTablePro
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleFileDownload(file)}
-                        aria-label="Download file"
+                        onClick={() => downloadFileWithToast(file)}
+                        aria-label="Baixar"
                       >
                         <Download className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => dispatch({ type: "SET_DELETE", payload: file })}
-                        aria-label="Delete file"
+                        onClick={() => setDeleteFile(file)}
+                        aria-label="Excluir"
                         className="text-destructive hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -297,26 +252,22 @@ export function FileTable({ files, isLoading, hideSearch = false }: FileTablePro
         </div>
       )}
 
-      {state.previewFile && (
+      {previewFile && (
         <ImagePreviewModal
-          file={state.previewFile}
-          open={!!state.previewFile}
-          onOpenChange={(open) =>
-            !open && dispatch({ type: "SET_PREVIEW", payload: null })
-          }
+          file={previewFile}
+          open={!!previewFile}
+          onOpenChange={(open) => !open && setPreviewFile(null)}
         />
       )}
 
-      {state.deleteFile && (
+      {deleteFile && (
         <DeleteFileDialog
-          filename={state.deleteFile.original_filename}
-          open={!!state.deleteFile}
-          onOpenChange={(open) =>
-            !open && dispatch({ type: "SET_DELETE", payload: null })
-          }
+          filename={deleteFile.original_filename}
+          open={!!deleteFile}
+          onOpenChange={(open) => !open && setDeleteFile(null)}
           onConfirm={() => {
-            deleteMutation.mutate(state.deleteFile!.id, {
-              onSuccess: () => dispatch({ type: "SET_DELETE", payload: null }),
+            deleteMutation.mutate(deleteFile.id, {
+              onSuccess: () => setDeleteFile(null),
             });
           }}
           isDeleting={deleteMutation.isPending}

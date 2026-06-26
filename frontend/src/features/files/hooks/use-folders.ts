@@ -7,16 +7,12 @@ import {
   fetchAllFolders,
   moveFileToFolder,
 } from "@/features/files/api/folders-api";
-import { useAuthStore } from "@/features/auth/store/auth-store";
+import { useAuthReady } from "@/features/auth/hooks/use-auth-ready";
 import { getErrorMessage } from "@/shared/api/client";
 import {
   FILES_QUERY_KEY,
   FOLDERS_QUERY_KEY,
 } from "@/shared/constants/query-keys";
-
-function useAuthReady() {
-  return useAuthStore((s) => s.isAuthenticated && !!s.accessToken);
-}
 
 export function useAllFolders() {
   const authReady = useAuthReady();

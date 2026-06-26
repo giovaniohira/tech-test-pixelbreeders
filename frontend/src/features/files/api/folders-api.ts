@@ -1,7 +1,8 @@
 import { apiClient } from "@/shared/api/client";
 import type { ApiResponse, Folder } from "@/shared/types";
 
-export async function fetchAllFolders(): Promise<Folder[]> {  const { data } = await apiClient.get<ApiResponse<Folder[]>>("/files/folders/", {
+export async function fetchAllFolders(): Promise<Folder[]> {
+  const { data } = await apiClient.get<ApiResponse<Folder[]>>("/files/folders/", {
     params: { all: "true" },
   });
   return data.data;

@@ -26,19 +26,19 @@ export function DeleteFileDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Delete file</DialogTitle>
+          <DialogTitle>Excluir arquivo</DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete{" "}
-            <span className="font-medium text-foreground">{filename}</span>? This action cannot be
-            undone.
+            Tem certeza de que deseja excluir{" "}
+            <span className="font-medium text-foreground">{filename}</span>? Esta ação não pode
+            ser desfeita.
           </DialogDescription>
         </DialogHeader>
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isDeleting}>
-            Cancel
+            Cancelar
           </Button>
           <Button variant="destructive" onClick={onConfirm} disabled={isDeleting}>
-            {isDeleting ? "Deleting..." : "Delete"}
+            {isDeleting ? "Excluindo..." : "Excluir"}
           </Button>
         </div>
       </DialogContent>

@@ -4,15 +4,6 @@ export interface ApiResponse<T> {
   data: T;
 }
 
-export interface ApiError {
-  success: false;
-  error: {
-    code: number;
-    message: string;
-    details?: Record<string, unknown>;
-  };
-}
-
 export interface User {
   id: number;
   username: string;
@@ -45,7 +36,6 @@ export interface Folder {
   parent_id: string | null;
   created_at: string;
   file_count: number;
-  child_count: number;
 }
 
 export interface Group {

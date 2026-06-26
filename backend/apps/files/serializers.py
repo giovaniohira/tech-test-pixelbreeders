@@ -29,7 +29,7 @@ class FileRecordSerializer(serializers.ModelSerializer):
     def get_group_ids(self, obj) -> list:
         from services.group_service import GroupService
 
-        return [str(gid) for gid in GroupService().get_group_ids_for_file(obj)]
+        return [str(group_id) for group_id in GroupService().get_group_ids_for_file(obj)]
 
 
 class FileMoveSerializer(serializers.Serializer):

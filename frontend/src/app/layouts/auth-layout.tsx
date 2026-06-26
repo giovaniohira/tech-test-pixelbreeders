@@ -2,7 +2,6 @@ import { Link } from "react-router-dom";
 import { Cloud, Lock, Zap } from "lucide-react";
 import { Logo } from "@/shared/components/logo";
 import { ThemeToggle } from "@/shared/components/theme-toggle";
-import { COPYRIGHT_YEAR } from "@/shared/constants";
 
 interface AuthLayoutProps {
   children: React.ReactNode;
@@ -64,7 +63,7 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
         </div>
 
         <p className="relative z-10 text-xs text-slate-500">
-          © {COPYRIGHT_YEAR} FileVault. Todos os direitos reservados.
+          © {new Date().getFullYear()} FileVault. Todos os direitos reservados.
         </p>
       </div>
 
