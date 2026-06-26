@@ -1,19 +1,40 @@
 # FileVault
 
-A production-quality file management web application built as a technical assessment. Authenticated users can securely upload, view, download, and delete their own files with a modern SaaS-style experience.
+Aplicação web de gerenciamento de arquivos construída como avaliação técnica. Usuários autenticados podem enviar, organizar, visualizar, baixar e compartilhar arquivos com experiência estilo SaaS.
 
-## Features
+## Features implementadas
 
-- **Authentication** — Register, login, logout with JWT access + refresh tokens and session persistence
-- **File management** — Upload, list, download, and delete files (PNG, JPG, PDF, TXT up to 10 MB)
-- **Dashboard** — Statistics cards (total files, storage used, latest upload)
-- **Search & sort** — Instant client-side search; sort by name, size, or upload date
-- **Drag & drop upload** — Modern upload zone with progress indicator
-- **Image preview** — Modal preview for PNG and JPG files
-- **Audit logging** — Internal tracking of upload, download, and delete actions
-- **Security** — Strict per-user ownership validation on every file operation
+| Área | O que está disponível |
+|------|------------------------|
+| **Autenticação** | Registro, login, logout, refresh JWT (cookie httpOnly + access token em memória) |
+| **Landing page** | Página marketing com hero, recursos, CTA e preview do dashboard |
+| **Dashboard** | Estatísticas, zona de upload, explorador de arquivos (lista/grade) |
+| **Arquivos** | Upload (drag & drop), download, exclusão, preview de imagens, busca e ordenação client-side |
+| **Pastas** | Criar, excluir, navegação por breadcrumb, mover arquivo via menu de contexto |
+| **Grupos** | Criar grupo, convidar por username, aceitar convite, compartilhar arquivos, sair/remover membro |
+| **Acesso compartilhado** | Membros de grupo podem **baixar** arquivos compartilhados; apenas o dono pode alterar metadados ou excluir |
+| **Tema** | Modo claro/escuro persistido |
+| **Auditoria** | Log interno de upload, download e delete (backend) |
+| **Rate limiting** | Throttle em login e upload |
+| **CI/CD** | GitHub Actions: testes backend, pip-audit, npm audit, lint, build, React Doctor |
+| **Docker** | Stack dev (hot reload) + perfil prod (Gunicorn + Nginx) |
 
-## Architecture
+## Features não implementadas (e por quê)
+
+| Feature ausente | Motivo |
+|-----------------|--------|
+| **S3 / object storage** | Escopo do tech test; adapter local permite migração futura |
+| **Paginação server-side** | Volume típico por usuário é baixo; busca/ordenação client-side é suficiente |
+| **Verificação de e-mail / reset de senha** | Fora do escopo; exigiria SMTP e fluxos adicionais |
+| **Notificações em tempo real** | WebSockets não requisitados |
+| **Versionamento de arquivos** | Complexidade desnecessária para o assessment |
+| **RBAC granular** | Apenas papéis `owner` e `member` em grupos |
+| **Links públicos de compartilhamento** | Compartilhamento apenas via grupos autenticados |
+| **PWA / offline** | Não requisitado |
+| **Testes E2E no CI** | Validados manualmente via Playwright durante desenvolvimento |
+| **i18n completo** | UI em pt-BR; mensagens de erro da API em inglês (padrão DRF) |
+
+## Arquitetura
 
 ```
 ┌─────────────┐     REST/JWT      ┌─────────────┐     SQL      ┌────────────┐
@@ -30,224 +51,228 @@ A production-quality file management web application built as a technical assess
 
 ### Backend (`backend/`)
 
-Feature-oriented Django project with clear separation of concerns:
-
 ```
 backend/
 ├── apps/
-│   ├── authentication/   # User registration, login, JWT endpoints
-│   └── files/              # File models, serializers, API views
-├── api/                    # Root API URL routing
-├── config/                 # Django settings and WSGI
-├── core/                   # Shared permissions, pagination, error handling
-├── services/               # Business logic (file operations, audit logging)
-├── storage/                # Filesystem storage adapter
-└── tests/                  # API integration tests
+│   ├── authentication/     # Registro, login, JWT
+│   ├── files/              # Arquivos, pastas, upload-config
+│   │   ├── file_views.py
+│   │   ├── file_serializers.py
+│   │   ├── folder_views.py
+│   │   └── folder_serializers.py
+│   └── groups/             # Grupos, convites, compartilhamento
+├── api/                    # Roteamento raiz da API
+├── config/                 # Settings e WSGI
+├── core/                   # Permissões, respostas, mixins, exceções
+├── services/               # Lógica de domínio (files, folders, groups, audit)
+├── storage/                # Adapter de filesystem
+└── tests/                  # test_api.py, test_groups.py
 ```
 
-### Frontend (`frontend/`)
-
-Feature-oriented React application:
+### Frontend (`frontend/src/`)
 
 ```
 frontend/src/
-├── app/                    # App shell, router, layouts
-├── pages/                  # Route-level page components
+├── app/                    # Shell, router, layouts (marketing, auth, dashboard)
+├── pages/                  # Rotas finas (landing, login, dashboard, group detail)
 ├── features/
-│   ├── auth/               # Auth API, store, hooks, forms
-│   └── files/              # File API, hooks, dashboard components
+│   ├── auth/               # API, store, hooks, forms, types
+│   ├── files/              # API, hooks, components, context, types
+│   └── groups/             # API, hooks, components, types
 └── shared/
-    ├── api/                # Axios client with token refresh
-    ├── components/ui/      # shadcn-style UI primitives
+    ├── api/                # Axios + fetchBlob unificado
+    ├── components/ui/      # Primitivos shadcn-style
     ├── constants/
-    ├── lib/
-    └── types/
+    └── types/              # ApiResponse + re-exports por feature
 ```
 
 ## Quick Start
 
-### Prerequisites
+### Pré-requisitos
 
-- [Docker](https://docs.docker.com/get-docker/) and Docker Compose
+- [Docker](https://docs.docker.com/get-docker/) e Docker Compose
 
-### Run the application (development)
+### Rodar em desenvolvimento
 
 ```bash
-# Clone the repository
 git clone <repository-url>
 cd tech-test-pixelbreeders
-
-# Start dev stack (no .env required — defaults are in docker-compose.yml)
 docker compose up --build
-# or: make dev
 ```
 
-Optional: copy `.env.example` to `.env` only if you need to override defaults (secrets, ports, etc.).
-
-```bash
-cp .env.example .env
-```
-
-| Service  | URL                        |
+| Serviço  | URL                        |
 |----------|----------------------------|
 | Frontend | http://localhost:5173      |
 | Backend  | http://localhost:8000/api  |
-| Admin    | http://localhost:8000/admin|
+| Admin    | http://localhost:8000/admin |
 
-Create a superuser (optional):
+Criar superusuário (opcional):
 
 ```bash
 docker compose exec backend python manage.py createsuperuser
-# or: make createsuperuser
 ```
 
-### Production-like stack (Docker)
-
-Runs Gunicorn + Nginx with built images and no source bind mounts:
+### Stack production-like
 
 ```bash
-# Set DJANGO_DEBUG=False and a strong DJANGO_SECRET_KEY in .env first
 make prod
-# or: COMPOSE_PROFILES=prod docker compose --profile prod up --build -d
 ```
 
-| Service  | URL                        |
+| Serviço  | URL                        |
 |----------|----------------------------|
 | Frontend | http://localhost:8080      |
 | Backend  | http://localhost:8000/api  |
 
-Useful commands:
-
-| Command | Description |
-|---------|-------------|
-| `make dev` | Dev stack with hot reload |
-| `make prod` | Production-like stack (detached) |
-| `make down` | Stop all services |
-| `make down-v` | Stop and remove volumes (resets DB + uploads) |
-| `make logs` | Follow logs |
-| `make test` | Run backend tests in dev container |
-| `make shell` | Shell into dev backend |
-| `make config` | Validate compose config (dev profile) |
-
-### Docker troubleshooting
-
-- **Only the database starts** — Run `docker compose up --build` (dev services start by default). Prod services require `--profile prod`.
-- **Port already in use** — Stop conflicting services or change ports in `docker-compose.yml` (e.g. `5432`, `8000`, `5173`, `8080`).
-- **Stale database or uploads** — `make down-v` removes volumes; then `make dev` to start fresh.
-- **Dev and prod share port 8000** — Do not run both profiles at the same time.
-- **Frontend prod API URL** — `VITE_API_URL` is baked in at build time; rebuild after changing it: `docker compose --profile prod build frontend-prod`.
-
-## Environment Variables
-
-All variables have defaults in `docker-compose.yml`. Copy `.env.example` to `.env` only to override them.
-
-| Variable                         | Description                          | Default                    |
-|----------------------------------|--------------------------------------|----------------------------|
-| `POSTGRES_DB`                    | Database name                        | `filevault`                |
-| `POSTGRES_USER`                  | Database user                        | `filevault`                |
-| `POSTGRES_PASSWORD`              | Database password                    | `filevault_secret`         |
-| `DJANGO_SECRET_KEY`              | Django secret key                    | (see `.env.example`)       |
-| `DJANGO_DEBUG`                   | Debug mode                           | `True`                     |
-| `CORS_ALLOWED_ORIGINS`           | Allowed frontend origins             | `http://localhost:5173`    |
-| `JWT_ACCESS_TOKEN_LIFETIME_MINUTES` | Access token TTL                  | `30`                       |
-| `JWT_REFRESH_TOKEN_LIFETIME_DAYS`   | Refresh token TTL                   | `7`                        |
-| `FILE_STORAGE_PATH`              | Upload directory                     | `/app/storage/uploads`     |
-| `MAX_UPLOAD_SIZE_MB`             | Max file size                        | `10`                       |
-| `VITE_API_URL`                   | Backend API URL (frontend)           | `http://localhost:8000/api`|
-| `GUNICORN_WORKERS`               | Gunicorn worker processes (prod)     | `2`                        |
-
 ## API Endpoints
 
-### Authentication
+### Autenticação
 
-| Method | Endpoint              | Description        |
-|--------|-----------------------|--------------------|
-| POST   | `/api/auth/register/` | Register new user  |
-| POST   | `/api/auth/login/`    | Login              |
-| POST   | `/api/auth/refresh/`  | Refresh JWT        |
-| POST   | `/api/auth/logout/`   | Logout (blacklist) |
-| GET    | `/api/auth/me/`       | Current user       |
+| Método | Endpoint              | Descrição        |
+|--------|-----------------------|------------------|
+| POST   | `/api/auth/register/` | Registrar        |
+| POST   | `/api/auth/login/`    | Login            |
+| POST   | `/api/auth/refresh/`  | Refresh JWT      |
+| POST   | `/api/auth/logout/`   | Logout           |
+| GET    | `/api/auth/me/`       | Usuário atual    |
 
-### Files
+### Arquivos
 
-| Method | Endpoint                      | Description          |
-|--------|-------------------------------|----------------------|
-| GET    | `/api/files/`                 | List user's files    |
-| POST   | `/api/files/`                 | Upload file          |
-| GET    | `/api/files/stats/`           | Dashboard statistics |
-| GET    | `/api/files/{id}/`            | File metadata        |
-| DELETE | `/api/files/{id}/`            | Delete file          |
-| GET    | `/api/files/{id}/download/`   | Download file        |
-| GET    | `/api/files/{id}/preview/`    | Image preview        |
+| Método | Endpoint                        | Descrição              |
+|--------|---------------------------------|------------------------|
+| GET    | `/api/files/`                   | Listar arquivos        |
+| POST   | `/api/files/`                   | Upload                 |
+| GET    | `/api/files/upload-config/`     | Limites e tipos aceitos |
+| GET    | `/api/files/stats/`             | Estatísticas           |
+| GET    | `/api/files/{id}/`              | Metadados (dono)       |
+| DELETE | `/api/files/{id}/`              | Excluir (dono)         |
+| PATCH  | `/api/files/{id}/move/`         | Mover para pasta       |
+| GET    | `/api/files/{id}/download/`     | Download (dono ou membro de grupo) |
+| GET    | `/api/files/{id}/preview/`      | Preview de imagem      |
 
-All file endpoints require authentication. Users can only access their own files.
+### Pastas
 
-## Technical Decisions
+| Método | Endpoint                      | Descrição      |
+|--------|-------------------------------|----------------|
+| GET    | `/api/files/folders/`         | Listar pastas  |
+| POST   | `/api/files/folders/`         | Criar pasta    |
+| DELETE | `/api/files/folders/{id}/`    | Excluir pasta  |
 
-| Decision | Rationale |
-|----------|-----------|
-| **JWT with refresh rotation** | Stateless API auth with secure token refresh and blacklisting on logout |
-| **Feature-oriented folders** | Clear domain boundaries; easier to navigate and extend |
-| **Service layer** | Business logic separated from views; testable and maintainable |
-| **Local filesystem storage** | Simple, meets requirements; storage adapter allows future S3 migration |
-| **React Query + Zustand** | Server state vs client auth state cleanly separated |
-| **Streaming downloads** | `FileResponse` streams files without loading into memory |
-| **Consistent API envelope** | `{ success, message, data }` format for predictable client handling |
+### Grupos
 
-## Tradeoffs
+| Método | Endpoint                                    | Descrição           |
+|--------|---------------------------------------------|-----------------------|
+| GET    | `/api/groups/`                              | Listar grupos         |
+| POST   | `/api/groups/`                              | Criar grupo           |
+| GET    | `/api/groups/{id}/`                         | Detalhe do grupo      |
+| POST   | `/api/groups/{id}/invite/`                  | Convidar membro       |
+| POST   | `/api/groups/{id}/leave/`                   | Sair do grupo         |
+| DELETE | `/api/groups/{id}/members/{member_id}/`     | Remover membro        |
+| GET    | `/api/groups/invitations/`                  | Convites pendentes    |
+| POST   | `/api/groups/invitations/{token}/accept/`   | Aceitar convite       |
+| GET/POST | `/api/groups/{id}/files/`                 | Arquivos do grupo     |
+| DELETE | `/api/groups/{id}/files/{file_id}/`         | Remover do grupo      |
 
-- **Local storage over S3** — Simpler setup for assessment; not horizontally scalable without shared storage
-- **Client-side search/sort** — Instant UX for typical file counts; server-side pagination would be needed at scale
-- **No email verification** — Reduces scope; would be required in production registration flow
-- **SQLite not used** — PostgreSQL required; adds Docker dependency but matches production patterns
+## Decisões técnicas
 
-## Security Considerations
+| Decisão | Rationale |
+|---------|-----------|
+| **JWT com refresh em cookie httpOnly** | API stateless com refresh seguro; access token só em memória no client |
+| **Regras de acesso a arquivos explícitas** | Dono: CRUD; membro de grupo: download/preview apenas |
+| **Camada de serviços (`services/`)** | Lógica de domínio fora das views; views finas com `ServiceErrorMixin` |
+| **`group_ids` via contexto de serializer** | Evita N+1 de `GroupService` por arquivo na listagem |
+| **`upload-config` como fonte da verdade** | Frontend valida upload com os mesmos limites do backend |
+| **Axios único com `fetchBlob`** | Um fluxo de auth/refresh para JSON e blobs |
+| **Feature folders no frontend** | `auth`, `files`, `groups` com api/hooks/components/types |
+| **`DashboardShell` vs `FilesDashboardLayout`** | Página de grupo sem chrome de pastas |
+| **Busca/ordenação client-side** | UX instantânea para volumes típicos do assessment |
+| **Storage local** | Simples para o teste; adapter permite S3 depois |
+| **React Query + Zustand** | Server state vs auth state separados |
+| **Envelope `{ success, message, data }`** | Respostas previsíveis no client |
 
-- JWT authentication on all protected endpoints
-- Object-level ownership checks via queryset filtering and `IsOwner` permission
-- File type validation by extension and MIME type
-- File size limits enforced server-side
-- Refresh token blacklisting on logout
-- CORS restricted to configured origins
-- Internal errors not leaked to clients (custom exception handler)
-- Storage filenames are UUID-based to prevent path traversal
+## Segurança
 
-## Testing
+- JWT em todos os endpoints protegidos
+- `can_access` / `can_modify` centralizados no `FileService`
+- Validação de tipo por extensão + MIME (magic bytes)
+- Limite de tamanho no servidor
+- Blacklist de refresh token no logout
+- CORS restrito
+- Handler de exceções sem vazamento de stack trace
+- Nomes de storage UUID (anti path traversal)
+- **pip-audit** e **npm audit** no CI
+- Testes de isolamento cross-user e de grupo (`test_groups.py`)
 
-Run backend tests inside Docker:
+## Testes
+
+### Backend (Docker)
 
 ```bash
 docker compose exec backend python manage.py test tests
 ```
 
-### Test coverage
+| Área | Cobertura |
+|------|-----------|
+| Auth | Registro, login, refresh via cookie, logout |
+| Arquivos | Upload, tipo inválido, spoof MIME, quota, delete |
+| Autorização | Isolamento entre usuários; membro baixa arquivo compartilhado |
+| Grupos | Convites, sair/remover membro, compartilhamento |
 
-| Area           | Tests                                              |
-|----------------|----------------------------------------------------|
-| Authentication | Register success, login success, invalid login     |
-| Authorization  | Cross-user list, delete, download isolation        |
-| Files          | Upload success, invalid type, size validation, delete |
-| API            | Protected endpoint access                          |
+### Frontend
 
-## Future Improvements
+```bash
+cd frontend && npm run lint && npm run build && npm run doctor
+```
 
-- [ ] S3-compatible object storage backend
-- [ ] Server-side pagination and search for large file libraries
-- [ ] Email verification and password reset
-- [ ] Rate limiting on upload and auth endpoints
-- [ ] Frontend test suite (Vitest + Testing Library)
-- [x] CI/CD pipeline with GitHub Actions
-- [x] Production deployment with Gunicorn + Nginx (Docker `prod` profile)
+### E2E manual (Playwright)
+
+Fluxos validados no browser em `http://localhost:5173`:
+
+1. Landing → registro/login
+2. Upload de arquivo (`e2e/fixtures/sample.txt`)
+3. Busca e ordenação na tabela
+4. Preview e download
+5. Exclusão com confirmação
+6. Pastas (criar, navegar)
+7. Grupos (criar, convidar, detalhe)
+8. Compartilhar arquivo via context menu
+9. Toggle de tema claro/escuro
 
 ## AI Usage Disclosure
 
-This project was developed with assistance from **Cursor AI** (Claude). AI was used for:
+Este projeto foi desenvolvido com **Cursor AI** (agente Composer) e ferramentas auxiliares de qualidade.
 
-- Scaffolding project structure and boilerplate
-- Generating initial component and test templates
-- Documentation drafting
+### Como a IA foi utilizada
 
-All architectural decisions, security patterns, and final code were reviewed and refined. The developer maintained control over structure, naming conventions, and implementation choices throughout.
+| Área | Ferramenta | Uso |
+|------|------------|-----|
+| Scaffolding | Cursor Agent | Estrutura Django + React, componentes base, landing page |
+| Limpeza de código | Cursor Agent | Remoção de dead code, comentários supérfluos, i18n pt-BR |
+| Qualidade React | **React Doctor** (`npm run doctor`) | Scan no CI e pre-commit; score de saúde 0–100 |
+| Segurança de dependências | **pip-audit** + **npm audit** | CI bloqueia vulnerabilidades high+ |
+| Revisão estrutural | Cursor Explore Agent | Análise de responsabilidades e duplicação |
+| Refatoração | Cursor Agent | Service layer, feature modules, layouts |
+| Testes E2E | **Playwright** (MCP) | Validação manual dos fluxos principais |
+| Documentação | Cursor Agent | README, decisões, disclosure |
+
+### Automações no pipeline
+
+- `.github/workflows/ci.yml` — backend tests, pip-audit, npm audit, lint, build, React Doctor
+- `frontend/.agents/skills/react-doctor/` — skill do agente para triagem antes de commit
+- Pre-commit hook — React Doctor em arquivos staged
+
+### Controle do desenvolvedor
+
+- Decisões de arquitetura (acesso a arquivos, feature folders, escopo)
+- Revisão de cada diff antes de commit
+- Definição do que entra e do que fica de fora do escopo
+- Validação final via Playwright e testes Django
+
+## Tradeoffs
+
+- **Storage local** — Simples para assessment; não escala horizontalmente sem storage compartilhado
+- **Services na raiz do backend** — Acoplamento `files ↔ groups` documentado; alternativa seria bounded contexts por app
+- **Sem paginação** — OK para demo; necessário em produção com muitos arquivos
+- **Sem e-mail** — Convites por username apenas
 
 ## License
 
