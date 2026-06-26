@@ -9,12 +9,10 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { useDeleteFile } from "@/features/files/hooks/use-files";
-import { DeleteFileDialog } from "@/features/files/components/delete-file-dialog";
 import { FileContextMenu } from "@/features/files/components/file-context-menu";
-import { ImagePreviewModal } from "@/features/files/components/image-preview-modal";
-import { downloadFileWithToast, getFileIcon } from "@/features/files/lib/file-actions";
-import { useGroups } from "@/features/groups/hooks/use-groups";
+import { useFileRowActions } from "@/features/files/hooks/use-file-row-actions";
+import { downloadFileWithToast } from "@/features/files/lib/file-actions";
+import { getFileIcon } from "@/features/files/lib/file-icons";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
@@ -87,16 +85,7 @@ export function FileTable({ files, isLoading, hideSearch = false }: FileTablePro
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState<SortField>("uploaded_at");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
-  const [previewFile, setPreviewFile] = useState<FileRecord | null>(null);
-  const [deleteFile, setDeleteFile] = useState<FileRecord | null>(null);
-
-  const deleteMutation = useDeleteFile();
-  const { data: groups = [] } = useGroups();
-
-  const groupMap = useMemo(
-    () => new Map(groups.map((group) => [group.id, group.name])),
-    [groups],
-  );
+  const { groupMap, setPreviewFile, setDeleteFile, modals } = useFileRowActions();
 
   const filteredFiles = useMemo(() => {
     const query = hideSearch ? "" : search.toLowerCase().trim();
@@ -252,27 +241,7 @@ export function FileTable({ files, isLoading, hideSearch = false }: FileTablePro
         </div>
       )}
 
-      {previewFile && (
-        <ImagePreviewModal
-          file={previewFile}
-          open={!!previewFile}
-          onOpenChange={(open) => !open && setPreviewFile(null)}
-        />
-      )}
-
-      {deleteFile && (
-        <DeleteFileDialog
-          filename={deleteFile.original_filename}
-          open={!!deleteFile}
-          onOpenChange={(open) => !open && setDeleteFile(null)}
-          onConfirm={() => {
-            deleteMutation.mutate(deleteFile.id, {
-              onSuccess: () => setDeleteFile(null),
-            });
-          }}
-          isDeleting={deleteMutation.isPending}
-        />
-      )}
+      {modals}
     </div>
   );
 }

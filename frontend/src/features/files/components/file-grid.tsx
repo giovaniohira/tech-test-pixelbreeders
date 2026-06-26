@@ -1,12 +1,8 @@
-import { useMemo, useState } from "react";
 import { Download, Eye, FileText, Trash2 } from "lucide-react";
 
-import { DeleteFileDialog } from "@/features/files/components/delete-file-dialog";
-import { FileContextMenu } from "@/features/files/components/file-context-menu";
-import { ImagePreviewModal } from "@/features/files/components/image-preview-modal";
-import { useDeleteFile } from "@/features/files/hooks/use-files";
-import { downloadFileWithToast, getFileIcon } from "@/features/files/lib/file-actions";
-import { useGroups } from "@/features/groups/hooks/use-groups";
+import { useFileRowActions } from "@/features/files/hooks/use-file-row-actions";
+import { downloadFileWithToast } from "@/features/files/lib/file-actions";
+import { getFileIcon } from "@/features/files/lib/file-icons";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Skeleton } from "@/shared/components/ui/skeleton";
@@ -19,15 +15,7 @@ interface FileGridProps {
 }
 
 export function FileGrid({ files, isLoading }: FileGridProps) {
-  const deleteMutation = useDeleteFile();
-  const { data: groups = [] } = useGroups();
-  const [previewFile, setPreviewFile] = useState<FileRecord | null>(null);
-  const [deleteFile, setDeleteFile] = useState<FileRecord | null>(null);
-
-  const groupMap = useMemo(
-    () => new Map(groups.map((group) => [group.id, group.name])),
-    [groups],
-  );
+  const { groupMap, setPreviewFile, setDeleteFile, modals } = useFileRowActions();
 
   if (isLoading) {
     return (
@@ -125,28 +113,7 @@ export function FileGrid({ files, isLoading }: FileGridProps) {
           );
         })}
       </div>
-
-      {previewFile && (
-        <ImagePreviewModal
-          file={previewFile}
-          open={!!previewFile}
-          onOpenChange={(open) => !open && setPreviewFile(null)}
-        />
-      )}
-
-      {deleteFile && (
-        <DeleteFileDialog
-          filename={deleteFile.original_filename}
-          open={!!deleteFile}
-          onOpenChange={(open) => !open && setDeleteFile(null)}
-          onConfirm={() => {
-            deleteMutation.mutate(deleteFile.id, {
-              onSuccess: () => setDeleteFile(null),
-            });
-          }}
-          isDeleting={deleteMutation.isPending}
-        />
-      )}
+      {modals}
     </>
   );
 }
