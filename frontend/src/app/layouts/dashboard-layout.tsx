@@ -1,39 +1,58 @@
-import { LogOut } from "lucide-react";
-import { useLogout } from "@/features/auth/hooks/use-auth";
-import { useAuthStore } from "@/features/auth/store/auth-store";
-import { Button } from "@/shared/components/ui/button";
+import { AccountMenu } from "@/features/auth/components/account-menu";
+import { useCurrentUser } from "@/features/auth/hooks/use-auth";
+import { FolderNavigationProvider } from "@/features/files/context/folder-navigation-provider";
+import { SidebarStats } from "@/features/files/components/sidebar-stats";
+import { FolderSidebar } from "@/features/files/components/folder-sidebar";
+import { GroupsSidebar } from "@/features/groups/components/groups-sidebar";
+import { Logo } from "@/shared/components/logo";
+import { ThemeToggle } from "@/shared/components/theme-toggle";
 
-export function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const user = useAuthStore((s) => s.user);
-  const logout = useLogout();
+function DashboardHeader() {
+  const { isLoading: isUserLoading } = useCurrentUser();
 
   return (
-    <div className="min-h-screen bg-muted/30">
-      <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto flex h-14 items-center justify-between px-4">
-          <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-md bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground text-xs font-bold">FV</span>
-            </div>
-            <span className="font-semibold">FileVault</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground hidden sm:inline">
-              {user?.username}
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => logout.mutate()}
-              disabled={logout.isPending}
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Logout
-            </Button>
-          </div>
+    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-end gap-2 border-b border-border bg-background/80 px-4 backdrop-blur-xl md:px-6 relative">
+      <Logo to="/dashboard" className="md:hidden absolute left-4" />
+      <ThemeToggle className="h-9 w-9" />
+      <AccountMenu isLoading={isUserLoading} />
+    </header>
+  );
+}
+
+function DashboardSidebar() {
+  return (
+    <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-border bg-card/30 h-screen sticky top-0">
+      <div className="flex h-14 items-center border-b border-border px-5">
+        <Logo to="/dashboard" />
+      </div>
+      <div className="border-b border-border px-4 py-3">
+        <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
+          Resumo
+        </p>
+        <SidebarStats />
+      </div>
+      <div className="flex flex-1 flex-col min-h-0">
+        <div className="flex-1 overflow-y-auto p-4">
+          <FolderSidebar />
         </div>
-      </header>
-      <main className="container mx-auto px-4 py-6 space-y-6">{children}</main>
-    </div>
+        <div className="shrink-0 border-t border-border p-4 bg-card/50">
+          <GroupsSidebar />
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+export function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <FolderNavigationProvider>
+      <div className="flex min-h-screen bg-background">
+        <DashboardSidebar />
+        <div className="flex flex-1 flex-col min-w-0">
+          <DashboardHeader />
+          <main className="flex-1 px-4 py-6 lg:px-8 space-y-6">{children}</main>
+        </div>
+      </div>
+    </FolderNavigationProvider>
   );
 }
