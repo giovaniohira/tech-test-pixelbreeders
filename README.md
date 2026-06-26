@@ -70,18 +70,22 @@ frontend/src/
 
 - [Docker](https://docs.docker.com/get-docker/) and Docker Compose
 
-### Run the application
+### Run the application (development)
 
 ```bash
 # Clone the repository
 git clone <repository-url>
 cd tech-test-pixelbreeders
 
-# Copy environment variables
-cp .env.example .env
-
-# Start all services
+# Start dev stack (no .env required — defaults are in docker-compose.yml)
 docker compose up --build
+# or: make dev
+```
+
+Optional: copy `.env.example` to `.env` only if you need to override defaults (secrets, ports, etc.).
+
+```bash
+cp .env.example .env
 ```
 
 | Service  | URL                        |
@@ -94,9 +98,48 @@ Create a superuser (optional):
 
 ```bash
 docker compose exec backend python manage.py createsuperuser
+# or: make createsuperuser
 ```
 
+### Production-like stack (Docker)
+
+Runs Gunicorn + Nginx with built images and no source bind mounts:
+
+```bash
+# Set DJANGO_DEBUG=False and a strong DJANGO_SECRET_KEY in .env first
+make prod
+# or: COMPOSE_PROFILES=prod docker compose --profile prod up --build -d
+```
+
+| Service  | URL                        |
+|----------|----------------------------|
+| Frontend | http://localhost:8080      |
+| Backend  | http://localhost:8000/api  |
+
+Useful commands:
+
+| Command | Description |
+|---------|-------------|
+| `make dev` | Dev stack with hot reload |
+| `make prod` | Production-like stack (detached) |
+| `make down` | Stop all services |
+| `make down-v` | Stop and remove volumes (resets DB + uploads) |
+| `make logs` | Follow logs |
+| `make test` | Run backend tests in dev container |
+| `make shell` | Shell into dev backend |
+| `make config` | Validate compose config (dev profile) |
+
+### Docker troubleshooting
+
+- **Only the database starts** — Run `docker compose up --build` (dev services start by default). Prod services require `--profile prod`.
+- **Port already in use** — Stop conflicting services or change ports in `docker-compose.yml` (e.g. `5432`, `8000`, `5173`, `8080`).
+- **Stale database or uploads** — `make down-v` removes volumes; then `make dev` to start fresh.
+- **Dev and prod share port 8000** — Do not run both profiles at the same time.
+- **Frontend prod API URL** — `VITE_API_URL` is baked in at build time; rebuild after changing it: `docker compose --profile prod build frontend-prod`.
+
 ## Environment Variables
+
+All variables have defaults in `docker-compose.yml`. Copy `.env.example` to `.env` only to override them.
 
 | Variable                         | Description                          | Default                    |
 |----------------------------------|--------------------------------------|----------------------------|
@@ -111,6 +154,7 @@ docker compose exec backend python manage.py createsuperuser
 | `FILE_STORAGE_PATH`              | Upload directory                     | `/app/storage/uploads`     |
 | `MAX_UPLOAD_SIZE_MB`             | Max file size                        | `10`                       |
 | `VITE_API_URL`                   | Backend API URL (frontend)           | `http://localhost:8000/api`|
+| `GUNICORN_WORKERS`               | Gunicorn worker processes (prod)     | `2`                        |
 
 ## API Endpoints
 
@@ -192,8 +236,8 @@ docker compose exec backend python manage.py test tests
 - [ ] Email verification and password reset
 - [ ] Rate limiting on upload and auth endpoints
 - [ ] Frontend test suite (Vitest + Testing Library)
-- [ ] CI/CD pipeline with GitHub Actions
-- [ ] Production deployment with Gunicorn + Nginx
+- [x] CI/CD pipeline with GitHub Actions
+- [x] Production deployment with Gunicorn + Nginx (Docker `prod` profile)
 
 ## AI Usage Disclosure
 
