@@ -2,6 +2,13 @@ import { apiClient, fetchBlob } from "@/shared/api/client";
 import { sanitizeFilename } from "@/shared/lib/sanitize-filename";
 import type { ApiResponse, FileRecord, FileStats } from "@/shared/types";
 
+export async function fetchUploadConfig() {
+  const { data } = await apiClient.get<ApiResponse<import("@/features/files/types").UploadConfig>>(
+    "/files/upload-config/",
+  );
+  return data.data;
+}
+
 export async function fetchFiles(folderId?: string | null): Promise<FileRecord[]> {
   const params = folderId ? { folder_id: folderId } : {};
   const { data } = await apiClient.get<ApiResponse<FileRecord[]>>("/files/", { params });

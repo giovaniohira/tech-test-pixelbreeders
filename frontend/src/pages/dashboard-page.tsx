@@ -1,13 +1,11 @@
 import { Files, LayoutDashboard, Upload } from "lucide-react";
+import { DashboardMobileSidebars } from "@/app/layouts/dashboard-sidebars";
 import { DashboardLayout } from "@/app/layouts/dashboard-layout";
 import { useFolderNavigation } from "@/features/files/hooks/use-folder-navigation";
 import { FileExplorer } from "@/features/files/components/file-explorer";
 import { FolderBreadcrumb } from "@/features/files/components/folder-breadcrumb";
-import { FolderSidebar } from "@/features/files/components/folder-sidebar";
-import { SidebarStats } from "@/features/files/components/sidebar-stats";
 import { UploadZone } from "@/features/files/components/upload-zone";
 import { useFiles } from "@/features/files/hooks/use-files";
-import { GroupsSidebar } from "@/features/groups/components/groups-sidebar";
 import { SectionHeader } from "@/shared/components/section-header";
 import { Card, CardContent } from "@/shared/components/ui/card";
 
@@ -30,16 +28,7 @@ function DashboardPageContent() {
         </div>
       </div>
 
-      <div className="md:hidden space-y-4">
-        <div className="rounded-lg border border-border bg-card/40 px-3 py-2.5">
-          <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
-            Resumo
-          </p>
-          <SidebarStats />
-        </div>
-        <FolderSidebar />
-        <GroupsSidebar />
-      </div>
+      <DashboardMobileSidebars />
 
       <section className="space-y-4">
         <SectionHeader

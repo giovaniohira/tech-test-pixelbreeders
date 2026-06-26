@@ -1,5 +1,6 @@
 import { Download, Eye, FileText, Trash2 } from "lucide-react";
 
+import { FileContextMenu } from "@/features/files/components/file-context-menu";
 import { useFileRowActions } from "@/features/files/hooks/use-file-row-actions";
 import { downloadFileWithToast } from "@/features/files/lib/file-actions";
 import { getFileIcon } from "@/features/files/lib/file-icons";

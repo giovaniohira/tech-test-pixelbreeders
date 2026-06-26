@@ -1,3 +1,5 @@
+import type { QueryClient } from "@tanstack/react-query";
+
 export const SESSION_BOOTSTRAP_QUERY_KEY = ["sessionBootstrap"] as const;
 export const CURRENT_USER_QUERY_KEY = ["currentUser"] as const;
 export const FILES_QUERY_KEY = ["files"] as const;
@@ -16,4 +18,20 @@ export function groupDetailQueryKey(groupId: string) {
 
 export function filePreviewQueryKey(fileId: string) {
   return ["filePreview", fileId] as const;
+}
+
+export function invalidateFiles(queryClient: QueryClient) {
+  return queryClient.invalidateQueries({ queryKey: FILES_QUERY_KEY });
+}
+
+export function invalidateFolders(queryClient: QueryClient) {
+  return queryClient.invalidateQueries({ queryKey: FOLDERS_QUERY_KEY });
+}
+
+export function invalidateGroups(queryClient: QueryClient) {
+  return queryClient.invalidateQueries({ queryKey: GROUPS_QUERY_KEY });
+}
+
+export function invalidateFileStats(queryClient: QueryClient) {
+  return queryClient.invalidateQueries({ queryKey: FILE_STATS_QUERY_KEY });
 }

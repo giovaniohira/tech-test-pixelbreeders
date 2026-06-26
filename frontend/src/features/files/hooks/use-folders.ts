@@ -10,8 +10,9 @@ import {
 import { useAuthReady } from "@/features/auth/hooks/use-auth-ready";
 import { getErrorMessage } from "@/shared/api/client";
 import {
-  FILES_QUERY_KEY,
   FOLDERS_QUERY_KEY,
+  invalidateFiles,
+  invalidateFolders,
 } from "@/shared/constants/query-keys";
 
 export function useAllFolders() {
@@ -31,7 +32,7 @@ export function useCreateFolder() {
     mutationFn: ({ name, parentId }: { name: string; parentId?: string | null }) =>
       createFolder(name, parentId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: FOLDERS_QUERY_KEY });
+      invalidateFolders(queryClient);
       toast.success("Pasta criada com sucesso.");
     },
     onError: (error) => toast.error(getErrorMessage(error)),
@@ -44,8 +45,8 @@ export function useDeleteFolder() {
   return useMutation({
     mutationFn: deleteFolder,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: FOLDERS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: FILES_QUERY_KEY });
+      invalidateFolders(queryClient);
+      invalidateFiles(queryClient);
       toast.success("Pasta excluída.");
     },
     onError: (error) => toast.error(getErrorMessage(error)),
@@ -59,7 +60,7 @@ export function useMoveFileToFolder() {
     mutationFn: ({ fileId, folderId }: { fileId: string; folderId: string | null }) =>
       moveFileToFolder(fileId, folderId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: FILES_QUERY_KEY });
+      invalidateFiles(queryClient);
       toast.success("Arquivo movido.");
     },
     onError: (error) => toast.error(getErrorMessage(error)),

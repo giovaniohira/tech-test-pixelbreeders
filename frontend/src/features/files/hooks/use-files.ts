@@ -12,6 +12,8 @@ import { getErrorMessage } from "@/shared/api/client";
 import {
   FILE_STATS_QUERY_KEY,
   filesQueryKey,
+  invalidateFileStats,
+  invalidateFiles,
 } from "@/shared/constants/query-keys";
 
 export function useFiles(folderId?: string | null) {
@@ -48,8 +50,8 @@ export function useUploadFile() {
       folderId?: string | null;
     }) => uploadFile(file, onProgress, folderId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["files"] });
-      queryClient.invalidateQueries({ queryKey: FILE_STATS_QUERY_KEY });
+      invalidateFiles(queryClient);
+      invalidateFileStats(queryClient);
       toast.success("Arquivo enviado com sucesso.");
     },
     onError: (error) => {
@@ -64,8 +66,8 @@ export function useDeleteFile() {
   return useMutation({
     mutationFn: deleteFile,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["files"] });
-      queryClient.invalidateQueries({ queryKey: FILE_STATS_QUERY_KEY });
+      invalidateFiles(queryClient);
+      invalidateFileStats(queryClient);
       toast.success("Arquivo excluído.");
     },
     onError: (error) => {

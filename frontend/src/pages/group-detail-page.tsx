@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
-import { DashboardLayout } from "@/app/layouts/dashboard-layout";
+import { DashboardShell } from "@/app/layouts/dashboard-shell";
 import { useAuthStore } from "@/features/auth/store/auth-store";
 import { GroupDetailHeader } from "@/features/groups/components/group-detail-header";
 import { GroupFilesList } from "@/features/groups/components/group-files-list";
@@ -64,7 +64,7 @@ export function GroupDetailPage() {
   }
 
   return (
-    <DashboardLayout>
+    <DashboardShell>
       <div className="space-y-6">
         <GroupDetailHeader
           group={data?.group}
@@ -118,6 +118,6 @@ export function GroupDetailPage() {
         onOpenChange={(open) => !open && setMemberToRemove(null)}
         onConfirm={handleRemoveMember}
       />
-    </DashboardLayout>
+    </DashboardShell>
   );
 }

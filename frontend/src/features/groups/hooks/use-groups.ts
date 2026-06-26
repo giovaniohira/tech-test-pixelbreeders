@@ -16,10 +16,11 @@ import {
 import { useAuthReady } from "@/features/auth/hooks/use-auth-ready";
 import { getErrorMessage } from "@/shared/api/client";
 import {
-  FILES_QUERY_KEY,
   GROUPS_QUERY_KEY,
   GROUP_INVITATIONS_QUERY_KEY,
   groupDetailQueryKey,
+  invalidateFiles,
+  invalidateGroups,
 } from "@/shared/constants/query-keys";
 
 export function useGroups() {
@@ -58,7 +59,7 @@ export function useCreateGroup() {
   return useMutation({
     mutationFn: createGroup,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: GROUPS_QUERY_KEY });
+      invalidateGroups(queryClient);
       toast.success("Grupo criado com sucesso.");
     },
     onError: (error) => toast.error(getErrorMessage(error)),
@@ -86,7 +87,7 @@ export function useAcceptInvitation() {
     mutationFn: acceptInvitation,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: GROUP_INVITATIONS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: GROUPS_QUERY_KEY });
+      invalidateGroups(queryClient);
       toast.success("Convite aceito! Você entrou no grupo.");
     },
     onError: (error) => toast.error(getErrorMessage(error)),
@@ -100,8 +101,8 @@ export function useAddFileToGroup() {
     mutationFn: ({ fileId, groupId }: { fileId: string; groupId: string }) =>
       addFileToGroup(fileId, groupId),
     onSuccess: (_, { groupId }) => {
-      queryClient.invalidateQueries({ queryKey: FILES_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: GROUPS_QUERY_KEY });
+      invalidateFiles(queryClient);
+      invalidateGroups(queryClient);
       queryClient.invalidateQueries({ queryKey: groupDetailQueryKey(groupId) });
       toast.success("Arquivo adicionado ao grupo.");
     },
@@ -116,7 +117,7 @@ export function useRemoveFileFromGroup() {
     mutationFn: ({ fileId, groupId }: { fileId: string; groupId: string }) =>
       removeFileFromGroup(fileId, groupId),
     onSuccess: (_, { groupId }) => {
-      queryClient.invalidateQueries({ queryKey: FILES_QUERY_KEY });
+      invalidateFiles(queryClient);
       queryClient.invalidateQueries({ queryKey: groupDetailQueryKey(groupId) });
       toast.success("Arquivo removido do grupo.");
     },
@@ -131,8 +132,8 @@ export function useLeaveGroup() {
     mutationFn: ({ groupId, removeFiles }: { groupId: string; removeFiles: boolean }) =>
       leaveGroup(groupId, removeFiles),
     onSuccess: (_, { groupId }) => {
-      queryClient.invalidateQueries({ queryKey: GROUPS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: FILES_QUERY_KEY });
+      invalidateFiles(queryClient);
+      invalidateGroups(queryClient);
       queryClient.removeQueries({ queryKey: groupDetailQueryKey(groupId) });
       toast.success("Você saiu do grupo.");
     },
@@ -147,8 +148,8 @@ export function useRemoveGroupMember() {
     mutationFn: ({ groupId, memberId }: { groupId: string; memberId: string }) =>
       removeGroupMember(groupId, memberId),
     onSuccess: (_, { groupId }) => {
-      queryClient.invalidateQueries({ queryKey: GROUPS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: FILES_QUERY_KEY });
+      invalidateGroups(queryClient);
+      invalidateFiles(queryClient);
       queryClient.invalidateQueries({ queryKey: groupDetailQueryKey(groupId) });
       toast.success("Membro removido do grupo.");
     },

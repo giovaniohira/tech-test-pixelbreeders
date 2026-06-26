@@ -13,8 +13,8 @@ import { useAuthStore } from "@/features/auth/store/auth-store";
 import { getErrorMessage } from "@/shared/api/client";
 import {
   CURRENT_USER_QUERY_KEY,
-  FILES_QUERY_KEY,
-  FILE_STATS_QUERY_KEY,
+  invalidateFileStats,
+  invalidateFiles,
 } from "@/shared/constants/query-keys";
 
 export function useLogin() {
@@ -27,8 +27,8 @@ export function useLogin() {
     onSuccess: (data) => {
       setAuth(data.user, data.tokens.access);
       queryClient.invalidateQueries({ queryKey: CURRENT_USER_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: FILES_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: FILE_STATS_QUERY_KEY });
+      invalidateFiles(queryClient);
+      invalidateFileStats(queryClient);
       toast.success("Bem-vindo de volta!");
       navigate("/dashboard");
     },
@@ -48,8 +48,8 @@ export function useRegister() {
     onSuccess: (data) => {
       setAuth(data.user, data.tokens.access);
       queryClient.invalidateQueries({ queryKey: CURRENT_USER_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: FILES_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: FILE_STATS_QUERY_KEY });
+      invalidateFiles(queryClient);
+      invalidateFileStats(queryClient);
       toast.success("Conta criada com sucesso!");
       navigate("/dashboard");
     },
