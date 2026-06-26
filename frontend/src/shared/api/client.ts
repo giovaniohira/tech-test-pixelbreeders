@@ -45,6 +45,11 @@ apiClient.interceptors.response.use(
   },
 );
 
+export async function fetchBlob(path: string): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>(path, { responseType: "blob" });
+  return data;
+}
+
 export function getErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
     const data = error.response?.data as {

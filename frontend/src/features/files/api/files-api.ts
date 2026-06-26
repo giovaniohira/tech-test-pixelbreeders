@@ -1,5 +1,4 @@
-import { apiClient } from "@/shared/api/client";
-import { fetchAuthenticatedBlob } from "@/shared/api/authenticated-fetch";
+import { apiClient, fetchBlob } from "@/shared/api/client";
 import { sanitizeFilename } from "@/shared/lib/sanitize-filename";
 import type { ApiResponse, FileRecord, FileStats } from "@/shared/types";
 
@@ -40,7 +39,7 @@ export async function deleteFile(fileId: string): Promise<void> {
 }
 
 export async function downloadFileRecord(file: FileRecord): Promise<void> {
-  const blob = await fetchAuthenticatedBlob(`/files/${file.id}/download/`);
+  const blob = await fetchBlob(`/files/${file.id}/download/`);
   const link = document.createElement("a");
   const objectUrl = URL.createObjectURL(blob);
   link.href = objectUrl;
