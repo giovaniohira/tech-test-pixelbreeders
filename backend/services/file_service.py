@@ -5,6 +5,7 @@ from django.db import transaction
 from django.db.models import Sum
 
 from apps.files.models import FileRecord, Folder
+from apps.groups.models import GroupFile
 from apps.files.validators import validate_upload_file
 from core.exceptions import StorageQuotaExceeded
 from services.audit_service import AuditService
@@ -101,3 +102,34 @@ class FileService:
             "storage_used": storage_used,
             "latest_upload": latest,
         }
+
+    def build_group_ids_map(self, files) -> dict[str, list[str]]:
+        if hasattr(files, "__iter__") and not isinstance(files, (str, FileRecord)):
+            file_list = list(files)
+        else:
+            file_list = [files]
+
+        file_ids = [file_record.id for file_record in file_list]
+        if not file_ids:
+            return {}
+
+        mapping: dict[str, list[str]] = {}
+        rows = GroupFile.objects.filter(file_id__in=file_ids).values("file_id", "group_id")
+        for row in rows:
+            key = str(row["file_id"])
+            mapping.setdefault(key, []).append(str(row["group_id"]))
+        return mapping
+
+    @transaction.atomic
+    def move_file(self, user, file_id, folder_id=None) -> FileRecord:
+        file_record = self.get_owned_file(user, file_id)
+        if not file_record:
+            raise ValueError("File not found.")
+
+        from services.folder_service import FolderService
+
+        return FolderService().move_file_to_folder(
+            user,
+            file_record,
+            folder_id=folder_id,
+        )

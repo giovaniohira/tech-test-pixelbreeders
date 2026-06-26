@@ -7,6 +7,7 @@ from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from apps.files.models import FileRecord
+from apps.files.serialization import file_serializer_context
 from apps.files.serializers import (
     FileMoveSerializer,
     FileRecordSerializer,
@@ -19,7 +20,6 @@ from core.utils import sanitize_filename
 from core.exceptions import StorageQuotaExceeded
 from services.audit_service import AuditService
 from services.file_service import FileService
-from services.folder_service import FolderService
 
 
 class FileListCreateView(generics.ListCreateAPIView):
@@ -40,7 +40,12 @@ class FileListCreateView(generics.ListCreateAPIView):
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
-        serializer = self.get_serializer(queryset, many=True, context={"request": request})
+        files = list(queryset)
+        serializer = self.get_serializer(
+            files,
+            many=True,
+            context=file_serializer_context(request, files),
+        )
         return success_response(data=serializer.data)
 
     def create(self, request, *args, **kwargs):
@@ -62,7 +67,10 @@ class FileListCreateView(generics.ListCreateAPIView):
         except ValueError as exc:
             return error_response(str(exc), status.HTTP_400_BAD_REQUEST)
         return success_response(
-            data=FileRecordSerializer(record, context={"request": request}).data,
+            data=FileRecordSerializer(
+                record,
+                context=file_serializer_context(request, record, service),
+            ).data,
             message="File uploaded successfully.",
             status_code=status.HTTP_201_CREATED,
         )
@@ -78,7 +86,10 @@ class FileDetailView(generics.RetrieveDestroyAPIView):
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
-        serializer = self.get_serializer(instance, context={"request": request})
+        serializer = self.get_serializer(
+            instance,
+            context=file_serializer_context(request, instance),
+        )
         return success_response(data=serializer.data)
 
     def destroy(self, request, *args, **kwargs):
@@ -96,22 +107,20 @@ class FileMoveView(APIView):
         move_serializer.is_valid(raise_exception=True)
 
         service = FileService()
-        file_record = service.get_owned_file(request.user, id)
-        if not file_record:
-            raise Http404("File not found.")
-
-        folder_service = FolderService()
         try:
-            updated = folder_service.move_file_to_folder(
+            updated = service.move_file(
                 request.user,
-                file_record,
+                id,
                 folder_id=move_serializer.validated_data.get("folder_id"),
             )
         except (PermissionError, ValueError) as exc:
             return error_response(str(exc), status.HTTP_400_BAD_REQUEST)
 
         return success_response(
-            data=FileRecordSerializer(updated, context={"request": request}).data,
+            data=FileRecordSerializer(
+                updated,
+                context=file_serializer_context(request, updated, service),
+            ).data,
             message="File moved successfully.",
         )
 
@@ -150,12 +159,19 @@ class FileStatsView(APIView):
     def get(self, request):
         service = FileService()
         stats = service.get_stats(request.user)
+        latest_upload = stats["latest_upload"]
+        latest_context = (
+            file_serializer_context(request, latest_upload, service)
+            if latest_upload
+            else {"request": request, "group_ids_map": {}}
+        )
         serializer = FileStatsSerializer(
             {
                 "total_files": stats["total_files"],
                 "storage_used": stats["storage_used"],
-                "latest_upload": stats["latest_upload"],
-            }
+                "latest_upload": latest_upload,
+            },
+            context={"request": request, "latest_upload_context": latest_context},
         )
         return success_response(data=serializer.data)
 

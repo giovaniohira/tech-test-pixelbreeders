@@ -27,9 +27,10 @@ class FileRecordSerializer(serializers.ModelSerializer):
         return obj.mime_type.startswith("image/")
 
     def get_group_ids(self, obj) -> list:
-        from services.group_service import GroupService
-
-        return [str(group_id) for group_id in GroupService().get_group_ids_for_file(obj)]
+        mapping = self.context.get("group_ids_map")
+        if mapping is not None:
+            return mapping.get(str(obj.id), [])
+        return []
 
 
 class FileMoveSerializer(serializers.Serializer):
@@ -49,4 +50,11 @@ class FileUploadSerializer(serializers.Serializer):
 class FileStatsSerializer(serializers.Serializer):
     total_files = serializers.IntegerField()
     storage_used = serializers.IntegerField()
-    latest_upload = FileRecordSerializer(allow_null=True)
+    latest_upload = serializers.SerializerMethodField()
+
+    def get_latest_upload(self, obj):
+        latest = obj.get("latest_upload")
+        if not latest:
+            return None
+        context = self.context.get("latest_upload_context", self.context)
+        return FileRecordSerializer(latest, context=context).data

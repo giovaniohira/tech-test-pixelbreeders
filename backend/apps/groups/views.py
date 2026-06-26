@@ -3,8 +3,9 @@ from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
+from apps.files.serialization import file_serializer_context
 from apps.files.serializers import FileRecordSerializer
-from apps.groups.models import Group, GroupRole
+from apps.groups.models import Group, GroupInvitation
 from apps.groups.serializers import (
     GroupCreateSerializer,
     GroupFileSerializer,
@@ -14,7 +15,9 @@ from apps.groups.serializers import (
     GroupMemberSerializer,
     GroupSerializer,
 )
+from core.mixins import ServiceErrorMixin
 from core.responses import error_response, success_response
+from services.file_service import FileService
 from services.group_service import GroupService
 
 
@@ -40,7 +43,7 @@ class GroupListCreateView(generics.ListCreateAPIView):
         )
 
 
-class GroupDetailView(APIView):
+class GroupDetailView(ServiceErrorMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, id):
@@ -49,31 +52,31 @@ class GroupDetailView(APIView):
         if not service.is_member(request.user, group):
             return error_response("Group not found.", status.HTTP_404_NOT_FOUND)
 
-        members = group.memberships.select_related("user")
-        files = service.get_group_files(request.user, group)
+        detail = service.get_group_detail(request.user, group)
+
+        file_service = FileService()
+        files = list(detail["files"])
         payload = {
-            "group": GroupSerializer(group, context={"request": request}).data,
-            "members": GroupMemberSerializer(members, many=True).data,
-            "files": FileRecordSerializer(files, many=True, context={"request": request}).data,
+            "group": GroupSerializer(detail["group"], context={"request": request}).data,
+            "members": GroupMemberSerializer(detail["members"], many=True).data,
+            "files": FileRecordSerializer(
+                files,
+                many=True,
+                context=file_serializer_context(request, files, file_service),
+            ).data,
         }
-        if service.is_owner(request.user, group):
-            pending = service.get_group_invitations(request.user, group)
+        if detail["pending_invitations"] is not None:
             payload["pending_invitations"] = GroupInvitationSerializer(
-                pending, many=True
+                detail["pending_invitations"],
+                many=True,
             ).data
-
-        membership = service.get_membership(request.user, group)
-        if membership and membership.role != GroupRole.OWNER:
-            from apps.groups.models import GroupFile
-
-            payload["my_shared_file_count"] = GroupFile.objects.filter(
-                group=group, file__owner=request.user
-            ).count()
+        if detail["my_shared_file_count"] is not None:
+            payload["my_shared_file_count"] = detail["my_shared_file_count"]
 
         return success_response(data=payload)
 
 
-class GroupInviteView(APIView):
+class GroupInviteView(ServiceErrorMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, id):
@@ -86,10 +89,8 @@ class GroupInviteView(APIView):
             invitation = service.invite_user(
                 request.user, group, serializer.validated_data["username"]
             )
-        except PermissionError as exc:
-            return error_response(str(exc), status.HTTP_403_FORBIDDEN)
-        except ValueError as exc:
-            return error_response(str(exc), status.HTTP_400_BAD_REQUEST)
+        except (PermissionError, ValueError) as exc:
+            return self.handle_service_error(exc)
 
         return success_response(
             data=GroupInvitationSerializer(invitation).data,
@@ -108,18 +109,16 @@ class GroupInvitationListView(APIView):
         return success_response(data=serializer.data)
 
 
-class GroupInvitationAcceptView(APIView):
+class GroupInvitationAcceptView(ServiceErrorMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, token):
-        from apps.groups.models import GroupInvitation
-
         invitation = get_object_or_404(GroupInvitation, token=token)
         service = GroupService()
         try:
             membership = service.accept_invitation(request.user, invitation)
         except (PermissionError, ValueError) as exc:
-            return error_response(str(exc), status.HTTP_400_BAD_REQUEST)
+            return self.handle_service_error(exc)
 
         return success_response(
             data=GroupMemberSerializer(membership).data,
@@ -127,7 +126,7 @@ class GroupInvitationAcceptView(APIView):
         )
 
 
-class GroupLeaveView(APIView):
+class GroupLeaveView(ServiceErrorMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, id):
@@ -142,15 +141,13 @@ class GroupLeaveView(APIView):
                 group,
                 remove_files=serializer.validated_data["remove_files"],
             )
-        except PermissionError as exc:
-            return error_response(str(exc), status.HTTP_403_FORBIDDEN)
-        except ValueError as exc:
-            return error_response(str(exc), status.HTTP_400_BAD_REQUEST)
+        except (PermissionError, ValueError) as exc:
+            return self.handle_service_error(exc)
 
         return success_response(message="You have left the group.")
 
 
-class GroupMemberRemoveView(APIView):
+class GroupMemberRemoveView(ServiceErrorMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     def delete(self, request, id, member_id):
@@ -158,15 +155,13 @@ class GroupMemberRemoveView(APIView):
         service = GroupService()
         try:
             service.remove_member(request.user, group, member_id)
-        except PermissionError as exc:
-            return error_response(str(exc), status.HTTP_403_FORBIDDEN)
-        except ValueError as exc:
-            return error_response(str(exc), status.HTTP_400_BAD_REQUEST)
+        except (PermissionError, ValueError) as exc:
+            return self.handle_service_error(exc)
 
         return success_response(message="Member removed from group.")
 
 
-class GroupFileListCreateView(APIView):
+class GroupFileListCreateView(ServiceErrorMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, id):
@@ -175,32 +170,37 @@ class GroupFileListCreateView(APIView):
         try:
             files = service.get_group_files(request.user, group)
         except PermissionError as exc:
-            return error_response(str(exc), status.HTTP_403_FORBIDDEN)
+            return self.handle_service_error(exc)
 
+        file_list = list(files)
+        file_service = FileService()
         return success_response(
-            data=FileRecordSerializer(files, many=True, context={"request": request}).data
+            data=FileRecordSerializer(
+                file_list,
+                many=True,
+                context=file_serializer_context(request, file_list, file_service),
+            ).data
         )
 
     def post(self, request, id):
-        from apps.files.models import FileRecord
-
         group = get_object_or_404(Group, id=id)
         file_id = request.data.get("file_id")
         if not file_id:
             return error_response("file_id is required.", status.HTTP_400_BAD_REQUEST)
 
-        service = GroupService()
-        if not service.is_member(request.user, group):
+        group_service = GroupService()
+        if not group_service.is_member(request.user, group):
             return error_response("Group not found.", status.HTTP_404_NOT_FOUND)
 
-        file_record = FileRecord.objects.filter(id=file_id, owner=request.user).first()
+        file_service = FileService()
+        file_record = file_service.get_owned_file(request.user, file_id)
         if not file_record:
             return error_response("File not found.", status.HTTP_404_NOT_FOUND)
 
         try:
-            share = service.add_file_to_group(request.user, group, file_record)
+            share = group_service.add_file_to_group(request.user, group, file_record)
         except ValueError as exc:
-            return error_response(str(exc), status.HTTP_400_BAD_REQUEST)
+            return self.handle_service_error(exc)
 
         return success_response(
             data=GroupFileSerializer(share).data,
@@ -209,7 +209,7 @@ class GroupFileListCreateView(APIView):
         )
 
 
-class GroupFileRemoveView(APIView):
+class GroupFileRemoveView(ServiceErrorMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     def delete(self, request, id, file_id):
@@ -221,6 +221,6 @@ class GroupFileRemoveView(APIView):
         try:
             service.remove_file_from_group(request.user, group, file_record)
         except PermissionError as exc:
-            return error_response(str(exc), status.HTTP_403_FORBIDDEN)
+            return self.handle_service_error(exc)
 
         return success_response(message="File removed from group.")

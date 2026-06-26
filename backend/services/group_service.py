@@ -156,9 +156,28 @@ class GroupService:
         return FileRecord.objects.filter(id__in=file_ids)
 
     def get_group_ids_for_file(self, file_record: FileRecord) -> list:
-        return list(
-            GroupFile.objects.filter(file=file_record).values_list("group_id", flat=True)
-        )
+        return self.build_group_ids_map([file_record]).get(str(file_record.id), [])
+
+    def get_group_detail(self, user: User, group: Group) -> dict:
+        detail = {
+            "group": group,
+            "members": group.memberships.select_related("user"),
+            "files": self.get_group_files(user, group),
+            "pending_invitations": None,
+            "my_shared_file_count": None,
+        }
+
+        if self.is_owner(user, group):
+            detail["pending_invitations"] = self.get_group_invitations(user, group)
+
+        membership = self.get_membership(user, group)
+        if membership and membership.role != GroupRole.OWNER:
+            detail["my_shared_file_count"] = GroupFile.objects.filter(
+                group=group,
+                file__owner=user,
+            ).count()
+
+        return detail
 
     def user_can_access_file(self, user: User, file_record: FileRecord) -> bool:
         if file_record.owner == user:
