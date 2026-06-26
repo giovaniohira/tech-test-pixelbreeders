@@ -1,4 +1,5 @@
 import uuid
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.urls import reverse
@@ -169,3 +170,41 @@ class GroupSecurityTestCase(APITestCase):
         url = reverse("groups-member-remove", kwargs={"id": self.group.id, "member_id": membership.id})
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_group_member_can_download_shared_file(self):
+        GroupFile.objects.create(
+            group=self.group,
+            file=self.owner_file,
+            added_by=self.owner,
+        )
+        self._auth_as(self.member_tokens)
+        with patch("apps.files.views.os.path.exists", return_value=True), patch(
+            "builtins.open", create=True
+        ), patch("services.file_service.LocalFileStorage") as mock_storage_cls:
+            mock_storage_cls.return_value.get_path.return_value = "/fake/owner.txt"
+            download_url = reverse("files-download", kwargs={"id": self.owner_file.id})
+            response = self.client.get(download_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_group_member_cannot_delete_shared_file(self):
+        GroupFile.objects.create(
+            group=self.group,
+            file=self.owner_file,
+            added_by=self.owner,
+        )
+        self._auth_as(self.member_tokens)
+        delete_url = reverse("files-detail", kwargs={"id": self.owner_file.id})
+        response = self.client.delete(delete_url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertTrue(FileRecord.objects.filter(id=self.owner_file.id).exists())
+
+    def test_group_member_cannot_read_metadata_of_shared_file(self):
+        GroupFile.objects.create(
+            group=self.group,
+            file=self.owner_file,
+            added_by=self.owner,
+        )
+        self._auth_as(self.member_tokens)
+        detail_url = reverse("files-detail", kwargs={"id": self.owner_file.id})
+        response = self.client.get(detail_url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)

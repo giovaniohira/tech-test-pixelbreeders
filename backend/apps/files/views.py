@@ -96,8 +96,8 @@ class FileMoveView(APIView):
         move_serializer.is_valid(raise_exception=True)
 
         service = FileService()
-        file_record = service.get_user_file(request.user, id)
-        if not file_record or file_record.owner != request.user:
+        file_record = service.get_owned_file(request.user, id)
+        if not file_record:
             raise Http404("File not found.")
 
         folder_service = FolderService()

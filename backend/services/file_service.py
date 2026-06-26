@@ -51,13 +51,23 @@ class FileService:
         AuditService.log_upload(user, record)
         return record
 
-    def get_user_file(self, user, file_id) -> FileRecord | None:
+    def can_access(self, user, file_record: FileRecord) -> bool:
+        return self.group_service.user_can_access_file(user, file_record)
+
+    def can_modify(self, user, file_record: FileRecord) -> bool:
+        return file_record.owner == user
+
+    def get_accessible_file(self, user, file_id) -> FileRecord | None:
         record = FileRecord.objects.filter(id=file_id).first()
-        if not record:
+        if not record or not self.can_access(user, record):
             return None
-        if self.group_service.user_can_access_file(user, record):
-            return record
-        return None
+        return record
+
+    def get_owned_file(self, user, file_id) -> FileRecord | None:
+        return FileRecord.objects.filter(id=file_id, owner=user).first()
+
+    def get_user_file(self, user, file_id) -> FileRecord | None:
+        return self.get_accessible_file(user, file_id)
 
     def list_user_files(self, user, folder_id=None):
         qs = FileRecord.objects.filter(owner=user)
@@ -72,6 +82,8 @@ class FileService:
 
     @transaction.atomic
     def delete(self, user, file_record: FileRecord) -> None:
+        if not self.can_modify(user, file_record):
+            raise PermissionError("You do not have permission to delete this file.")
         filename = file_record.original_filename
         owner_id = file_record.owner_id
         storage_filename = file_record.storage_filename
