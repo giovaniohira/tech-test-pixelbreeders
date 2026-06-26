@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
 from apps.files.serialization import file_serializer_context
-from apps.files.serializers import FileRecordSerializer
+from apps.files.file_serializers import FileRecordSerializer
 from apps.groups.models import Group, GroupInvitation
 from apps.groups.serializers import (
     GroupCreateSerializer,

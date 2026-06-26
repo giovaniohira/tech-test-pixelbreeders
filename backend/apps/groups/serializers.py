@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from apps.groups.models import Group, GroupFile, GroupInvitation, GroupMembership
-from apps.files.serializers import FileRecordSerializer
+from apps.files.file_serializers import FileRecordSerializer
 
 
 class GroupMemberSerializer(serializers.ModelSerializer):

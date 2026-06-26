@@ -1,17 +1,19 @@
 from django.urls import path
 
-from apps.files.views import (
+from apps.files.file_views import (
     FileDetailView,
     FileDownloadView,
     FileListCreateView,
     FileMoveView,
     FilePreviewView,
     FileStatsView,
+    FileUploadConfigView,
 )
 from apps.files.folder_views import FolderDetailView, FolderListCreateView
 
 urlpatterns = [
     path("", FileListCreateView.as_view(), name="files-list-create"),
+    path("upload-config/", FileUploadConfigView.as_view(), name="files-upload-config"),
     path("stats/", FileStatsView.as_view(), name="files-stats"),
     path("folders/", FolderListCreateView.as_view(), name="folders-list-create"),
     path("folders/<uuid:id>/", FolderDetailView.as_view(), name="folders-detail"),

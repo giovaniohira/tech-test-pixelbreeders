@@ -178,7 +178,7 @@ class GroupSecurityTestCase(APITestCase):
             added_by=self.owner,
         )
         self._auth_as(self.member_tokens)
-        with patch("apps.files.views.os.path.exists", return_value=True), patch(
+        with patch("apps.files.file_views.os.path.exists", return_value=True), patch(
             "builtins.open", create=True
         ), patch("services.file_service.LocalFileStorage") as mock_storage_cls:
             mock_storage_cls.return_value.get_path.return_value = "/fake/owner.txt"

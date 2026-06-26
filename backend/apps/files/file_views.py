@@ -1,5 +1,6 @@
 import os
 
+from django.conf import settings
 from django.http import FileResponse, Http404
 from rest_framework import generics, parsers, status
 from rest_framework.permissions import IsAuthenticated
@@ -8,7 +9,7 @@ from rest_framework.views import APIView
 
 from apps.files.models import FileRecord
 from apps.files.serialization import file_serializer_context
-from apps.files.serializers import (
+from apps.files.file_serializers import (
     FileMoveSerializer,
     FileRecordSerializer,
     FileStatsSerializer,
@@ -151,6 +152,20 @@ class FileDownloadView(APIView):
         )
         response["Content-Length"] = file_record.size
         return response
+
+
+class FileUploadConfigView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return success_response(
+            data={
+                "max_size_mb": settings.MAX_UPLOAD_SIZE_MB,
+                "max_size_bytes": settings.MAX_UPLOAD_SIZE_BYTES,
+                "allowed_extensions": sorted(settings.ALLOWED_FILE_EXTENSIONS),
+                "allowed_mime_types": sorted(settings.ALLOWED_MIME_TYPES),
+            }
+        )
 
 
 class FileStatsView(APIView):

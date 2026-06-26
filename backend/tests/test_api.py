@@ -286,7 +286,7 @@ class FileAPITestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertTrue(FileRecord.objects.filter(id=file_record.id).exists())
 
-    @patch("apps.files.views.os.path.exists", return_value=True)
+    @patch("apps.files.file_views.os.path.exists", return_value=True)
     @patch("builtins.open", create=True)
     @patch("services.file_service.LocalFileStorage")
     def test_user_cannot_download_another_users_files(
