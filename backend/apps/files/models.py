@@ -1,13 +1,48 @@
 import uuid
 
-from django.conf import settings
 from django.contrib.auth.models import User
 from django.db import models
+
+
+class Folder(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="folders")
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="children",
+    )
+    name = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name"]
+        indexes = [
+            models.Index(fields=["owner", "parent"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["owner", "parent", "name"],
+                name="unique_folder_name_per_parent",
+            ),
+        ]
+
+    def __str__(self):
+        return self.name
 
 
 class FileRecord(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="files")
+    folder = models.ForeignKey(
+        Folder,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="files",
+    )
     original_filename = models.CharField(max_length=255)
     storage_filename = models.CharField(max_length=255)
     mime_type = models.CharField(max_length=100)

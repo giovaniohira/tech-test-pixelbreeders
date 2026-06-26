@@ -6,6 +6,8 @@ from apps.files.validators import validate_upload_file
 
 class FileRecordSerializer(serializers.ModelSerializer):
     is_image = serializers.SerializerMethodField()
+    folder_id = serializers.UUIDField(source="folder.id", read_only=True, allow_null=True)
+    group_ids = serializers.SerializerMethodField()
 
     class Meta:
         model = FileRecord
@@ -16,18 +18,32 @@ class FileRecordSerializer(serializers.ModelSerializer):
             "size",
             "uploaded_at",
             "is_image",
+            "folder_id",
+            "group_ids",
         )
         read_only_fields = fields
 
     def get_is_image(self, obj) -> bool:
         return obj.mime_type.startswith("image/")
 
+    def get_group_ids(self, obj) -> list:
+        from services.group_service import GroupService
+
+        return [str(gid) for gid in GroupService().get_group_ids_for_file(obj)]
+
+
+class FileMoveSerializer(serializers.Serializer):
+    folder_id = serializers.UUIDField(required=False, allow_null=True)
+
 
 class FileUploadSerializer(serializers.Serializer):
     file = serializers.FileField()
+    folder_id = serializers.UUIDField(required=False, allow_null=True, default=None)
 
     def validate_file(self, value):
-        return validate_upload_file(value)
+        validate_upload_file(value)
+        value.seek(0)
+        return value
 
 
 class FileStatsSerializer(serializers.Serializer):
