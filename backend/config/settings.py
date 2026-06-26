@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "apps.authentication",
     "apps.files",
+    "apps.groups",
 ]
 
 MIDDLEWARE = [
@@ -137,7 +138,7 @@ REST_FRAMEWORK = {
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(
-        minutes=int(os.getenv("JWT_ACCESS_TOKEN_LIFETIME_MINUTES", "30"))
+        minutes=int(os.getenv("JWT_ACCESS_TOKEN_LIFETIME_MINUTES", "15"))
     ),
     "REFRESH_TOKEN_LIFETIME": timedelta(
         days=int(os.getenv("JWT_REFRESH_TOKEN_LIFETIME_DAYS", "7"))
