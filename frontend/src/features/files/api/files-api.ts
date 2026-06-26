@@ -1,8 +1,11 @@
 import { apiClient } from "@/shared/api/client";
+import { fetchAuthenticatedBlob } from "@/shared/api/authenticated-fetch";
+import { sanitizeFilename } from "@/shared/lib/sanitize-filename";
 import type { ApiResponse, FileRecord, FileStats } from "@/shared/types";
 
-export async function fetchFiles(): Promise<FileRecord[]> {
-  const { data } = await apiClient.get<ApiResponse<FileRecord[]>>("/files/");
+export async function fetchFiles(folderId?: string | null): Promise<FileRecord[]> {
+  const params = folderId ? { folder_id: folderId } : {};
+  const { data } = await apiClient.get<ApiResponse<FileRecord[]>>("/files/", { params });
   return data.data;
 }
 
@@ -14,12 +17,15 @@ export async function fetchFileStats(): Promise<FileStats> {
 export async function uploadFile(
   file: File,
   onProgress?: (progress: number) => void,
+  folderId?: string | null,
 ): Promise<FileRecord> {
   const formData = new FormData();
   formData.append("file", file);
+  if (folderId) {
+    formData.append("folder_id", folderId);
+  }
 
   const { data } = await apiClient.post<ApiResponse<FileRecord>>("/files/", formData, {
-    headers: { "Content-Type": "multipart/form-data" },
     onUploadProgress: (event) => {
       if (event.total && onProgress) {
         onProgress(Math.round((event.loaded * 100) / event.total));
@@ -33,12 +39,12 @@ export async function deleteFile(fileId: string): Promise<void> {
   await apiClient.delete(`/files/${fileId}/`);
 }
 
-export function getDownloadUrl(fileId: string): string {
-  const base = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
-  return `${base}/files/${fileId}/download/`;
-}
-
-export function getPreviewUrl(fileId: string): string {
-  const base = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
-  return `${base}/files/${fileId}/preview/`;
+export async function downloadFileRecord(file: FileRecord): Promise<void> {
+  const blob = await fetchAuthenticatedBlob(`/files/${file.id}/download/`);
+  const link = document.createElement("a");
+  const objectUrl = URL.createObjectURL(blob);
+  link.href = objectUrl;
+  link.download = sanitizeFilename(file.original_filename);
+  link.click();
+  URL.revokeObjectURL(objectUrl);
 }

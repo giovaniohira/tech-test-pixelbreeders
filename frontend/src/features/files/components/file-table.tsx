@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useReducer } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -9,21 +9,68 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useDeleteFile } from "@/features/files/hooks/use-files";
-import { getDownloadUrl } from "@/features/files/api/files-api";
-import { useAuthStore } from "@/features/auth/store/auth-store";
+import { downloadFileRecord } from "@/features/files/api/files-api";
 import { ImagePreviewModal } from "@/features/files/components/image-preview-modal";
 import { DeleteFileDialog } from "@/features/files/components/delete-file-dialog";
+import { FileContextMenu } from "@/features/files/components/file-context-menu";
+import { useGroups } from "@/features/groups/hooks/use-groups";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Skeleton } from "@/shared/components/ui/skeleton";
+import { getErrorMessage } from "@/shared/api/client";
 import type { FileRecord, SortDirection, SortField } from "@/shared/types";
 import { formatBytes, formatDate } from "@/shared/lib/utils";
 
 interface FileTableProps {
   files: FileRecord[];
   isLoading: boolean;
+  hideSearch?: boolean;
+}
+
+type FileTableState = {
+  search: string;
+  sortField: SortField;
+  sortDirection: SortDirection;
+  previewFile: FileRecord | null;
+  deleteFile: FileRecord | null;
+};
+
+type FileTableAction =
+  | { type: "SET_SEARCH"; payload: string }
+  | { type: "TOGGLE_SORT"; payload: SortField }
+  | { type: "SET_PREVIEW"; payload: FileRecord | null }
+  | { type: "SET_DELETE"; payload: FileRecord | null };
+
+const initialState: FileTableState = {
+  search: "",
+  sortField: "uploaded_at",
+  sortDirection: "desc",
+  previewFile: null,
+  deleteFile: null,
+};
+
+function fileTableReducer(state: FileTableState, action: FileTableAction): FileTableState {
+  switch (action.type) {
+    case "SET_SEARCH":
+      return { ...state, search: action.payload };
+    case "TOGGLE_SORT":
+      if (state.sortField === action.payload) {
+        return {
+          ...state,
+          sortDirection: state.sortDirection === "asc" ? "desc" : "asc",
+        };
+      }
+      return { ...state, sortField: action.payload, sortDirection: "asc" };
+    case "SET_PREVIEW":
+      return { ...state, previewFile: action.payload };
+    case "SET_DELETE":
+      return { ...state, deleteFile: action.payload };
+    default:
+      return state;
+  }
 }
 
 function getFileIcon(mimeType: string) {
@@ -36,7 +83,7 @@ function sortFiles(
   field: SortField,
   direction: SortDirection,
 ): FileRecord[] {
-  const sorted = [...files].sort((a, b) => {
+  return files.toSorted((a, b) => {
     let comparison = 0;
     switch (field) {
       case "name":
@@ -51,53 +98,27 @@ function sortFiles(
     }
     return direction === "asc" ? comparison : -comparison;
   });
-  return sorted;
 }
 
-export function FileTable({ files, isLoading }: FileTableProps) {
-  const [search, setSearch] = useState("");
-  const [sortField, setSortField] = useState<SortField>("uploaded_at");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
-  const [previewFile, setPreviewFile] = useState<FileRecord | null>(null);
-  const [deleteFile, setDeleteFile] = useState<FileRecord | null>(null);
-  const deleteMutation = useDeleteFile();
-  const accessToken = useAuthStore((s) => s.accessToken);
+interface SortButtonProps {
+  field: SortField;
+  label: string;
+  sortField: SortField;
+  sortDirection: SortDirection;
+  onToggle: (field: SortField) => void;
+}
 
-  const filteredFiles = useMemo(() => {
-    const query = search.toLowerCase().trim();
-    const filtered = query
-      ? files.filter((f) => f.original_filename.toLowerCase().includes(query))
-      : files;
-    return sortFiles(filtered, sortField, sortDirection);
-  }, [files, search, sortField, sortDirection]);
-
-  const toggleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortField(field);
-      setSortDirection("asc");
-    }
-  };
-
-  const handleDownload = async (file: FileRecord) => {
-    const url = getDownloadUrl(file.id);
-    const response = await fetch(url, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    if (!response.ok) return;
-    const blob = await response.blob();
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = file.original_filename;
-    link.click();
-    URL.revokeObjectURL(link.href);
-  };
-
-  const SortButton = ({ field, label }: { field: SortField; label: string }) => (
+function SortButton({
+  field,
+  label,
+  sortField,
+  sortDirection,
+  onToggle,
+}: SortButtonProps) {
+  return (
     <button
       type="button"
-      onClick={() => toggleSort(field)}
+      onClick={() => onToggle(field)}
       className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
     >
       {label}
@@ -109,6 +130,33 @@ export function FileTable({ files, isLoading }: FileTableProps) {
         ))}
     </button>
   );
+}
+
+async function handleFileDownload(file: FileRecord) {
+  try {
+    await downloadFileRecord(file);
+  } catch (error) {
+    toast.error(getErrorMessage(error));
+  }
+}
+
+export function FileTable({ files, isLoading, hideSearch = false }: FileTableProps) {
+  const [state, dispatch] = useReducer(fileTableReducer, initialState);
+  const deleteMutation = useDeleteFile();
+  const { data: groups = [] } = useGroups();
+
+  const groupMap = useMemo(
+    () => new Map(groups.map((g) => [g.id, g.name])),
+    [groups],
+  );
+
+  const filteredFiles = useMemo(() => {
+    const query = hideSearch ? "" : state.search.toLowerCase().trim();
+    const filtered = query
+      ? files.filter((f) => f.original_filename.toLowerCase().includes(query))
+      : files;
+    return sortFiles(filtered, state.sortField, state.sortDirection);
+  }, [files, state.search, state.sortField, state.sortDirection, hideSearch]);
 
   if (isLoading) {
     return (
@@ -122,113 +170,153 @@ export function FileTable({ files, isLoading }: FileTableProps) {
 
   return (
     <div className="space-y-4">
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Search files..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
-        />
-      </div>
+      {!hideSearch && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Buscar arquivos..."
+            value={state.search}
+            onChange={(e) => dispatch({ type: "SET_SEARCH", payload: e.target.value })}
+            className="pl-9"
+          />
+        </div>
+      )}
 
       {filteredFiles.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-16 text-center">
           <FileText className="h-10 w-10 text-muted-foreground mb-3" />
           <p className="font-medium">
-            {search ? "No files match your search" : "No files yet"}
+            {!hideSearch && state.search ? "Nenhum arquivo corresponde à busca" : "Nenhum arquivo encontrado"}
           </p>
           <p className="text-sm text-muted-foreground mt-1">
-            {search
-              ? "Try a different search term"
-              : "Upload your first file to get started"}
+            {!hideSearch && state.search
+              ? "Tente outro termo de busca"
+              : "Envie seu primeiro arquivo para começar"}
           </p>
         </div>
       ) : (
         <div className="rounded-lg border overflow-hidden">
           <div className="hidden sm:grid sm:grid-cols-[1fr_100px_140px_120px] gap-4 px-4 py-3 bg-muted/50 text-xs font-medium text-muted-foreground border-b">
-            <SortButton field="name" label="Name" />
-            <SortButton field="size" label="Size" />
-            <SortButton field="uploaded_at" label="Uploaded" />
-            <span>Actions</span>
+            <SortButton
+              field="name"
+              label="Nome"
+              sortField={state.sortField}
+              sortDirection={state.sortDirection}
+              onToggle={(field) => dispatch({ type: "TOGGLE_SORT", payload: field })}
+            />
+            <SortButton
+              field="size"
+              label="Tamanho"
+              sortField={state.sortField}
+              sortDirection={state.sortDirection}
+              onToggle={(field) => dispatch({ type: "TOGGLE_SORT", payload: field })}
+            />
+            <SortButton
+              field="uploaded_at"
+              label="Enviado"
+              sortField={state.sortField}
+              sortDirection={state.sortDirection}
+              onToggle={(field) => dispatch({ type: "TOGGLE_SORT", payload: field })}
+            />
+            <span>Ações</span>
           </div>
           <ul className="divide-y">
             {filteredFiles.map((file) => {
               const Icon = getFileIcon(file.mime_type);
               return (
-                <li
+                <FileContextMenu
                   key={file.id}
-                  className="grid grid-cols-1 sm:grid-cols-[1fr_100px_140px_120px] gap-2 sm:gap-4 px-4 py-3 items-center hover:bg-muted/30 transition-colors"
+                  file={file}
+                  onPreview={
+                    file.is_image
+                      ? () => dispatch({ type: "SET_PREVIEW", payload: file })
+                      : undefined
+                  }
+                  onDownload={() => handleFileDownload(file)}
+                  onDelete={() => dispatch({ type: "SET_DELETE", payload: file })}
                 >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <Icon className="h-5 w-5 shrink-0 text-muted-foreground" />
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate" title={file.original_filename}>
-                        {file.original_filename}
-                      </p>
-                      <Badge variant="secondary" className="mt-1 sm:hidden text-[10px]">
-                        {file.mime_type.split("/")[1]?.toUpperCase()}
-                      </Badge>
+                  <li className="grid grid-cols-1 sm:grid-cols-[1fr_100px_140px_120px] gap-2 sm:gap-4 px-4 py-3 items-center hover:bg-muted/30 transition-colors cursor-default">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Icon className="h-5 w-5 shrink-0 text-muted-foreground" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate" title={file.original_filename}>
+                          {file.original_filename}
+                        </p>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          <Badge variant="secondary" className="sm:hidden text-[10px]">
+                            {file.mime_type.split("/")[1]?.toUpperCase()}
+                          </Badge>
+                          {file.group_ids.map((gid) => (
+                            <Badge key={gid} variant="outline" className="text-[10px]">
+                              {groupMap.get(gid) || "Grupo"}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <span className="text-sm text-muted-foreground hidden sm:block">
-                    {formatBytes(file.size)}
-                  </span>
-                  <span className="text-sm text-muted-foreground hidden sm:block">
-                    {formatDate(file.uploaded_at)}
-                  </span>
-                  <div className="flex items-center gap-1 justify-end">
-                    {file.is_image && (
+                    <span className="text-sm text-muted-foreground hidden sm:block">
+                      {formatBytes(file.size)}
+                    </span>
+                    <span className="text-sm text-muted-foreground hidden sm:block">
+                      {formatDate(file.uploaded_at)}
+                    </span>
+                    <div className="flex items-center gap-1 justify-end">
+                      {file.is_image && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => dispatch({ type: "SET_PREVIEW", payload: file })}
+                          aria-label="Preview image"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => setPreviewFile(file)}
-                        aria-label="Preview image"
+                        onClick={() => handleFileDownload(file)}
+                        aria-label="Download file"
                       >
-                        <Eye className="h-4 w-4" />
+                        <Download className="h-4 w-4" />
                       </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDownload(file)}
-                      aria-label="Download file"
-                    >
-                      <Download className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setDeleteFile(file)}
-                      aria-label="Delete file"
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </li>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => dispatch({ type: "SET_DELETE", payload: file })}
+                        aria-label="Delete file"
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </li>
+                </FileContextMenu>
               );
             })}
           </ul>
         </div>
       )}
 
-      {previewFile && (
+      {state.previewFile && (
         <ImagePreviewModal
-          file={previewFile}
-          open={!!previewFile}
-          onOpenChange={(open) => !open && setPreviewFile(null)}
+          file={state.previewFile}
+          open={!!state.previewFile}
+          onOpenChange={(open) =>
+            !open && dispatch({ type: "SET_PREVIEW", payload: null })
+          }
         />
       )}
 
-      {deleteFile && (
+      {state.deleteFile && (
         <DeleteFileDialog
-          filename={deleteFile.original_filename}
-          open={!!deleteFile}
-          onOpenChange={(open) => !open && setDeleteFile(null)}
+          filename={state.deleteFile.original_filename}
+          open={!!state.deleteFile}
+          onOpenChange={(open) =>
+            !open && dispatch({ type: "SET_DELETE", payload: null })
+          }
           onConfirm={() => {
-            deleteMutation.mutate(deleteFile.id, {
-              onSuccess: () => setDeleteFile(null),
+            deleteMutation.mutate(state.deleteFile!.id, {
+              onSuccess: () => dispatch({ type: "SET_DELETE", payload: null }),
             });
           }}
           isDeleting={deleteMutation.isPending}
