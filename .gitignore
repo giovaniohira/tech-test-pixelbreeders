@@ -36,6 +36,7 @@ dist/
 .vscode/
 *.swp
 *.swo
+.playwright-mcp/
 
 # OS
 .DS_Store
@@ -43,3 +44,4 @@ Thumbs.db
 
 # Storage
 storage/uploads/
+backend/storage/uploads/
