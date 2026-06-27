@@ -95,7 +95,7 @@ frontend/src/
 ### Rodar em desenvolvimento
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/giovaniohira/tech-test-pixelbreeders
 cd tech-test-pixelbreeders
 docker compose up --build
 ```
